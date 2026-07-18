@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "509991346553",
+    "project_id": "momento-a05e0",
+    "storage_bucket": "momento-a05e0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:509991346553:android:b17ba4eaa07d185e3d8fa8",
+        "android_client_info": {
+          "package_name": "com.example.setlog_clone"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "509991346553-2d8vg5b53ogjdacitlbmhlrbkfdeh81b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWLwUA2EVujGPHjH13Cr4aKWm1IQkMT84"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "509991346553-2d8vg5b53ogjdacitlbmhlrbkfdeh81b.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "509991346553-0ms6f7tiois3vfvcv0beo3ddpcq4l7qs.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.ravana.momento"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:509991346553:android:55dc33f969d9f8ea3d8fa8",
+        "android_client_info": {
+          "package_name": "com.ravana.momento"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "509991346553-shc8mjn67bdhvhq7qdqkah38vf80sbrr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ravana.momento",
+            "certificate_hash": "9b909399776b71e517d0e8d6e82d7857e4f9df91"
+          }
+        },
+        {
+          "client_id": "509991346553-2d8vg5b53ogjdacitlbmhlrbkfdeh81b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWLwUA2EVujGPHjH13Cr4aKWm1IQkMT84"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "509991346553-2d8vg5b53ogjdacitlbmhlrbkfdeh81b.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "509991346553-0ms6f7tiois3vfvcv0beo3ddpcq4l7qs.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.ravana.momento"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
