@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'push_notification_service.dart';
 
 class Reaction {
   final String emoji;
@@ -55,6 +56,26 @@ class ReactionsRepository {
       'reactorUid': uid,
       'reactorUsername': reactorUsername,
     });
+
+    // Send push notification to the owner of the shared log
+    try {
+      final shareDoc = await _db.collection('sharedLogs').doc(shareId).get();
+      final ownerUid = shareDoc.data()?['ownerUid'] as String?;
+      if (ownerUid != null && ownerUid != uid) {
+        final ownerDoc = await _db.collection('users').doc(ownerUid).get();
+        final fcmToken = ownerDoc.data()?['fcmToken'] as String?;
+        if (fcmToken != null && fcmToken.isNotEmpty) {
+          // Requires import 'push_notification_service.dart';
+          await PushNotificationService.instance.sendPushNotification(
+            targetToken: fcmToken,
+            title: 'New Reaction',
+            body: '@$reactorUsername reacted $emoji to your moment!',
+          );
+        }
+      }
+    } catch (e) {
+      // Ignore notification errors
+    }
   }
 
   Future<void> removeReaction({

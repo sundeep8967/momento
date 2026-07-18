@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:app_links/app_links.dart';
 import 'firebase_options.dart';
 import 'router/app_router.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -21,6 +22,16 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  
+  // Setup App Links
+  final appLinks = AppLinks();
+  appLinks.uriLinkStream.listen((uri) {
+    if (uri.scheme == 'momento' && uri.host == 'add' && uri.pathSegments.isNotEmpty) {
+      final username = uri.pathSegments.first;
+      appRouter.push('/friends/add/$username');
+    }
+  });
+
   runApp(const MomentoApp());
 }
 

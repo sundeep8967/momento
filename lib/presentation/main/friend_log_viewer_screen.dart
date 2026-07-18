@@ -6,8 +6,10 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../data/log_repository.dart';
 import '../../data/friends_repository.dart';
+import '../../data/reactions_repository.dart';
 import '../../theme/colors.dart';
 import 'dart:io' show Platform;
+import 'package:flutter_animate/flutter_animate.dart';
 
 const _kEmojis = ['🔥', '❤️', '😂', '😮', '😢', '👏'];
 
@@ -138,11 +140,17 @@ class _FriendLogViewerScreenState extends State<FriendLogViewerScreen> {
     // Optimistic UI update
     setState(() {
       _log!.reactions[clipId] ??= {};
-      _log!.reactions[clipId][_myUid] = emoji;
+      _log!.reactions[clipId][_myUid!] = emoji; // Add exclamation mark
       _showEmojiPicker = false;
     });
     
-    await LogRepository.instance.addReaction(widget.shareId, clipId, emoji);
+    final me = await FriendsRepository.instance.getMyProfile();
+    await ReactionsRepository.instance.addReaction(
+      shareId: widget.shareId, 
+      clipId: clipId, 
+      emoji: emoji, 
+      reactorUsername: me?.username ?? 'someone'
+    );
   }
 
   @override
@@ -214,6 +222,39 @@ class _FriendLogViewerScreenState extends State<FriendLogViewerScreen> {
                     )
                   : const CircularProgressIndicator(color: Colors.white),
             ),
+
+            // Real-time Reactions Stream
+            if (currentClipId.isNotEmpty)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: StreamBuilder<List<Reaction>>(
+                    stream: ReactionsRepository.instance.reactionsStream(widget.shareId, currentClipId),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
+                      
+                      final recentReactions = snapshot.data!.where((r) => 
+                        DateTime.now().difference(r.reactedAt).inSeconds < 5
+                      ).toList();
+
+                      return Stack(
+                        children: recentReactions.asMap().entries.map((entry) {
+                          final i = entry.key;
+                          final r = entry.value;
+                          return Positioned(
+                            bottom: 100.0,
+                            right: 20.0 + (i * 10.0), // offset slightly for multiple
+                            child: Text(r.emoji, style: const TextStyle(fontSize: 40))
+                                .animate()
+                                .fadeIn(duration: 200.ms)
+                                .slideY(begin: 0, end: -3, duration: 1500.ms, curve: Curves.easeOut)
+                                .fadeOut(delay: 1000.ms, duration: 500.ms),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                ),
+              ),
 
             // Progress bar
             Positioned(

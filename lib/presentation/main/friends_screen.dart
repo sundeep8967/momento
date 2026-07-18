@@ -6,7 +6,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 
 class FriendsScreen extends StatefulWidget {
-  const FriendsScreen({super.key});
+  final String? initialSearch;
+  const FriendsScreen({super.key, this.initialSearch});
 
   @override
   State<FriendsScreen> createState() => _FriendsScreenState();
@@ -30,6 +31,10 @@ class _FriendsScreenState extends State<FriendsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    if (widget.initialSearch != null) {
+      _searchController.text = widget.initialSearch!;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _search());
+    }
     _loadFriendData();
   }
 

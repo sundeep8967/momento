@@ -96,6 +96,13 @@ final GoRouter appRouter = GoRouter(
             return _fadeRoute(state, FriendLogViewerScreen(shareId: shareId));
           },
         ),
+        GoRoute(
+          path: 'add/:username',
+          pageBuilder: (context, state) {
+            final username = state.pathParameters['username']!;
+            return _fadeRoute(state, FriendsScreen(initialSearch: username));
+          },
+        ),
       ],
     ),
   ],

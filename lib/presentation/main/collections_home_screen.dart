@@ -29,9 +29,26 @@ class _CollectionsHomeScreenState extends State<CollectionsHomeScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _isLoading = true);
+    // 1. Yield Cached Data Immediately
+    try {
+      final cachedFriends = await FriendsRepository.instance.getCachedMutualFriends();
+      final cachedSharedLogs = await LogRepository.instance.getCachedFriendsSharedLogs();
+      if (cachedFriends.isNotEmpty || cachedSharedLogs.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _friendsLogs = cachedSharedLogs;
+            _friendProfiles = { for (var f in cachedFriends) f.uid : f };
+            _isLoading = false;
+          });
+        }
+      } else {
+        setState(() => _isLoading = true);
+      }
+    } catch (_) {
+      setState(() => _isLoading = true);
+    }
 
-    // Close any expired logs first
+    // 2. Fetch Fresh Data (Background)
     try {
       final mutualUids = await FriendsRepository.instance.getMutualFriendUids();
       await LogRepository.instance.checkAndCloseExpiredLogs(mutualUids);

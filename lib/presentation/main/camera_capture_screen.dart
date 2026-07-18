@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:camera/camera.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../data/log_repository.dart';
 import '../../theme/colors.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -25,6 +27,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   XFile? _recordedFile;
   bool _isReviewing = false;
   final TextEditingController _captionController = TextEditingController();
+  bool _showStreakCelebration = false;
+  int _currentStreak = 0;
 
   @override
   void initState() {
@@ -108,21 +112,21 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       await LogRepository.instance.addClipToTodaysLog(_recordedFile!.path, caption: caption.isEmpty ? null : caption);
       HapticFeedback.vibrate();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: SetlogColors.authTerminalAccent),
-                SizedBox(width: 10),
-                Text('Clip added to today\'s log!', style: TextStyle(fontWeight: FontWeight.w600)),
-              ],
-            ),
-            duration: Duration(seconds: 1),
-            backgroundColor: SetlogColors.authInk,
-          ),
-        );
-        await Future.delayed(const Duration(milliseconds: 600));
-        context.pop();
+        // Fetch streak for celebration
+        try {
+          final profileDoc = await FirebaseFirestore.instance.collection('users').doc(FirebaseAuth.instance.currentUser?.uid).get();
+          _currentStreak = profileDoc.data()?['currentStreak'] ?? 1;
+        } catch (_) {
+          _currentStreak = 1;
+        }
+
+        setState(() {
+          _isSaving = false;
+          _showStreakCelebration = true;
+        });
+
+        await Future.delayed(const Duration(milliseconds: 2000));
+        if (mounted) context.pop();
       }
     } catch (e) {
       HapticFeedback.heavyImpact();
@@ -334,6 +338,41 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   ),
                 ),
               ),
+
+            // Streak Celebration Overlay
+            if (_showStreakCelebration)
+              Container(
+                color: Colors.black87,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        '🔥',
+                        style: TextStyle(fontSize: 100),
+                      ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Streak +1',
+                        style: const TextStyle(
+                          color: SetlogColors.authTerminalAccent,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.2),
+                      const SizedBox(height: 10),
+                      Text(
+                        '$_currentStreak days strong',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ).animate().fadeIn(delay: 500.ms),
+                    ],
+                  ),
+                ),
+              ).animate().fadeIn(duration: 200.ms).fadeOut(delay: 1500.ms, duration: 400.ms),
           ],
         ),
       ),

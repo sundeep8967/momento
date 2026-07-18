@@ -87,6 +87,7 @@
 				<key>CFBundleURLSchemes</key>
 				<array>
 					<string>com.googleusercontent.apps.509991346553-0ms6f7tiois3vfvcv0beo3ddpcq4l7qs</string>
+					<string>momento</string>
 				</array>
 			</dict>
 		</array>

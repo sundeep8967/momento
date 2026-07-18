@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'push_notification_service.dart';
+import 'local_cache.dart';
 
 class UserProfile {
   final String uid;
@@ -161,14 +162,22 @@ class FriendsRepository {
         .toList();
   }
 
+  Future<List<UserProfile>> getCachedMutualFriends() async {
+    return await LocalCache.instance.getCachedFriends();
+  }
+
   Future<List<UserProfile>> getMutualFriends() async {
     final uids = await getMutualFriendUids();
-    if (uids.isEmpty) return [];
+    if (uids.isEmpty) {
+      await LocalCache.instance.cacheFriends([]);
+      return [];
+    }
     final profiles = <UserProfile>[];
     for (final uid in uids) {
       final doc = await _db.collection('users').doc(uid).get();
       if (doc.exists) profiles.add(UserProfile.fromMap(doc.id, doc.data()!));
     }
+    await LocalCache.instance.cacheFriends(profiles);
     return profiles;
   }
 

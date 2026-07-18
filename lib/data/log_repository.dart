@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:video_compress/video_compress.dart';
 import 'cloudinary_service.dart';
+import 'local_cache.dart';
 
 // ─────────────────────────────────────────────
 // Models
@@ -188,12 +189,18 @@ class LogRepository {
     // Compress video to save bandwidth and Cloudinary storage
     final mediaInfo = await VideoCompress.compressVideo(
       localFilePath,
-      quality: VideoQuality.MediumQuality,
+      quality: VideoQuality.LowQuality,
       deleteOrigin: false,
     );
     final uploadPath = mediaInfo?.file?.path ?? localFilePath;
     
     final cloudUrl = await CloudinaryService.uploadRawVideo(uploadPath);
+    
+    // Clean up compression cache to avoid storage bloat
+    try {
+      await VideoCompress.deleteAllCache();
+    } catch (_) {}
+
     final clipId = DateTime.now().millisecondsSinceEpoch.toString();
     final clip = DayClip(
       id: clipId,
@@ -314,19 +321,29 @@ class LogRepository {
     await batch.commit();
   }
 
+  Future<List<SharedLog>> getCachedFriendsSharedLogs() async {
+    return await LocalCache.instance.getCachedSharedLogs();
+  }
+
   Future<List<SharedLog>> getFriendsSharedLogs() async {
     final uid = _uid;
-    if (uid == null) return [];
+    if (uid == null) {
+      await LocalCache.instance.cacheSharedLogs([]);
+      return [];
+    }
     final snap = await _db
         .collection('sharedLogs')
         .where('expiresAt', isGreaterThan: Timestamp.fromDate(DateTime.now()))
         .orderBy('expiresAt', descending: false)
         .limit(30)
         .get();
-    return snap.docs
+    final logs = snap.docs
         .map((d) => SharedLog.fromFirestore(d.id, d.data()))
         .where((log) => log.viewers.containsKey(uid))
         .toList();
+        
+    await LocalCache.instance.cacheSharedLogs(logs);
+    return logs;
   }
 
   Future<void> markLogViewed(String shareId, int lastClipIndex) async {
