@@ -1,67 +1,77 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class SetlogColors {
-  // --- Authentication Flow Colors ---
-  static const Color authCanvas = Color(0xFFFFF6EE); // Main background
-  static const Color authSurface = Color(0xFFFFFFFF);
-  static const Color authSurfaceRaised = Color(0xFFF8F2EA);
+  // --- Core Monochrome Palette ---
+  static const Color authCanvas = CupertinoColors.systemBackground;
+  static const Color authSurface = CupertinoColors.secondarySystemBackground;
+  static const Color authSurfaceRaised = CupertinoColors.tertiarySystemBackground;
   
-  static const Color authInk = Color(0xFF1F1B18); // Primary Text
-  static const Color authMuted = Color(0xFF665D56); // Secondary Text
+  static const Color authInk = CupertinoColors.label;
+  static const Color authMuted = CupertinoColors.secondaryLabel;
   
-  static const Color authButtonPrimary = Color(0xFF221C18);
-  static const Color authButtonPrimaryText = Color(0xFFFFFBF5);
+  static const Color brownPrimary = CupertinoColors.activeBlue; // Replace warm CTA with system blue
+  static const Color brownPrimaryDark = Color(0xFF0055B3); 
+  static const Color brownPrimaryText = CupertinoColors.white;
+
+  static const Color authButtonPrimary = CupertinoColors.activeBlue;
+  static const Color authButtonPrimaryText = CupertinoColors.white;
   
-  static const Color authButter = Color(0xFFF5E19A); // Accent yellow
-  static const Color authTerminalAccent = Color(0xFF65EA7B); // Success/Terminal green
-  static const Color authStrokeSoft = Color(0x1F1F1B18); // Subtle borders
+  static const Color authButter = CupertinoColors.systemYellow;
+  static const Color authTerminalAccent = CupertinoColors.systemGreen; 
+  static const Color authStrokeSoft = CupertinoColors.separator;
+
+  // Blue flame (streak indicator)
+  static const Color blueFlame = CupertinoColors.systemOrange;
 
   // --- Main App / Collections Colors ---
-  static const Color collectionsHomeBackground = authCanvas;
-  static const Color collectionsHomeSurface = authSurface;
-  static const Color collectionsHomeSurfacePressed = authSurfaceRaised;
-  static const Color collectionsHomeTextPrimary = authInk;
-  static const Color collectionsHomeTextSecondary = authMuted;
+  static const Color collectionsHomeBackground = CupertinoColors.systemGroupedBackground;
+  static const Color collectionsHomeSurface = CupertinoColors.secondarySystemGroupedBackground;
+  static const Color collectionsHomeSurfacePressed = CupertinoColors.tertiarySystemGroupedBackground;
+  static const Color collectionsHomeTextPrimary = CupertinoColors.label;
+  static const Color collectionsHomeTextSecondary = CupertinoColors.secondaryLabel;
   
   // --- Account Specific Colors (Profile Borders) ---
-  static const Color accountBlue = Color(0xFF11D5F3);
-  static const Color accountGreen = Color(0xFF65EA7B);
-  static const Color accountOrange = Color(0xFFFE9068);
-  static const Color accountPink = Color(0xFFFE75F5);
-  static const Color accountPurple = Color(0xFFAA6DFE);
+  static const Color accountBlue = CupertinoColors.systemBlue;
+  static const Color accountGreen = CupertinoColors.systemGreen;
+  static const Color accountOrange = CupertinoColors.systemOrange;
+  static const Color accountPink = CupertinoColors.systemPink;
+  static const Color accountPurple = CupertinoColors.systemPurple;
   
   // --- Camera UI ---
-  static const Color cameraBackground = Color(0xFF090909);
-  static const Color cameraTimerProgress = accountGreen;
-  static const Color cameraFocusRing = Color(0xFFFFD900);
+  static const Color cameraBackground = CupertinoColors.black;
+  static const Color cameraTimerProgress = CupertinoColors.systemRed;
+  static const Color cameraFocusRing = CupertinoColors.systemYellow;
 }
 
 final ThemeData setlogTheme = ThemeData(
   scaffoldBackgroundColor: SetlogColors.collectionsHomeBackground,
-  primaryColor: SetlogColors.authInk,
-  fontFamily: 'Inter', // Or any sans-serif to match the modern look
-  
+  primaryColor: SetlogColors.brownPrimary,
+  fontFamily: '.SF Pro Text', // Native iOS font
   colorScheme: const ColorScheme.light(
-    primary: SetlogColors.authInk,
-    secondary: SetlogColors.authTerminalAccent,
+    primary: SetlogColors.brownPrimary,
+    secondary: SetlogColors.authMuted,
     surface: SetlogColors.authSurface,
-    error: Color(0xFFB00020),
+    onSurface: SetlogColors.authInk,
   ),
-
-  elevatedButtonTheme: ElevatedButtonThemeData(
-    style: ElevatedButton.styleFrom(
-      backgroundColor: SetlogColors.authButtonPrimary,
-      foregroundColor: SetlogColors.authButtonPrimaryText,
-      elevation: 0,
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16.0), // Soft rounded corners
-      ),
-      textStyle: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.2,
-      ),
+  appBarTheme: const AppBarTheme(
+    backgroundColor: SetlogColors.collectionsHomeBackground,
+    foregroundColor: SetlogColors.authInk,
+    elevation: 0,
+    iconTheme: IconThemeData(color: SetlogColors.authInk),
+  ),
+  cupertinoOverrideTheme: const CupertinoThemeData(
+    primaryColor: SetlogColors.brownPrimary,
+    scaffoldBackgroundColor: SetlogColors.collectionsHomeBackground,
+    barBackgroundColor: SetlogColors.collectionsHomeBackground,
+    textTheme: CupertinoTextThemeData(
+      textStyle: TextStyle(fontFamily: '.SF Pro Text', color: SetlogColors.authInk),
     ),
+  ),
+  pageTransitionsTheme: const PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+    },
   ),
 );

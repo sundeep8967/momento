@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -114,27 +115,31 @@ class _AuthLandingScreenState extends State<AuthLandingScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ElevatedButton(
+                    CupertinoButton.filled(
                       onPressed: _isLoading ? null : () => context.go('/auth/email'),
-                      child: const Text('Continue with Email & Password'),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: _isLoading ? null : _signInWithGoogle,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: SetlogColors.authSurface,
-                        foregroundColor: SetlogColors.authInk,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: const BorderSide(color: SetlogColors.authStrokeSoft),
-                        ),
+                      borderRadius: BorderRadius.circular(14),
+                      child: const Text(
+                        'Continue with Email & Password',
+                        style: TextStyle(fontWeight: FontWeight.w600),
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    CupertinoButton(
+                      onPressed: _isLoading ? null : _signInWithGoogle,
+                      color: SetlogColors.authSurface,
+                      borderRadius: BorderRadius.circular(14),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Image.asset('assets/google_logo.png', height: 24, width: 24),
                           const SizedBox(width: 12),
-                          const Text('Continue with Google'),
+                          const Text(
+                            'Continue with Google',
+                            style: TextStyle(
+                              color: SetlogColors.authInk,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ],
                       ),
                     ),

@@ -14,35 +14,11 @@ class AnimatedSplashScreen extends StatefulWidget {
 }
 
 class _AnimatedSplashScreenState extends State<AnimatedSplashScreen> {
-  final String _targetText = 'Momento';
-  String _currentText = '';
-  int _currentIndex = 0;
-  Timer? _timer;
-
   @override
   void initState() {
     super.initState();
-    _startTypingAnimation();
-  }
-
-  void _startTypingAnimation() {
-    // Wait a bit before starting the animation so it feels seamless with native splash
-    Future.delayed(const Duration(milliseconds: 300), () {
-      _timer = Timer.periodic(const Duration(milliseconds: 150), (timer) {
-        if (_currentIndex < _targetText.length) {
-          setState(() {
-            _currentText += _targetText[_currentIndex];
-            _currentIndex++;
-          });
-        } else {
-          _timer?.cancel();
-          // Wait a second after finishing typing, then check auth and redirect
-          Future.delayed(const Duration(milliseconds: 800), () {
-            _checkAuthAndRedirect();
-          });
-        }
-      });
-    });
+    // Start auth check after a brief delay for the logo animation
+    Future.delayed(const Duration(milliseconds: 1500), _checkAuthAndRedirect);
   }
 
   Future<void> _checkAuthAndRedirect() async {
@@ -61,38 +37,24 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen> {
           context.go('/main');
         }
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) context.go('/auth/landing');
     }
   }
 
   @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: SetlogColors.authCanvas,
+      backgroundColor: Colors.black, // Apple style pure black splash
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Removed splash image as per request
-            const SizedBox(height: 24),
-            Text(
-              _currentText,
-              style: const TextStyle(
-                fontSize: 48,
-                fontWeight: FontWeight.bold,
-                letterSpacing: -1.5,
-                color: SetlogColors.authInk,
-              ),
-            ),
-          ],
-        ),
+        child: Image.asset(
+          'assets/app_icon.png',
+          width: 120,
+          height: 120,
+        )
+        .animate()
+        .fadeIn(duration: 800.ms, curve: Curves.easeOut)
+        .scale(begin: const Offset(0.8, 0.8), end: const Offset(1.0, 1.0), duration: 800.ms, curve: Curves.easeOutBack),
       ),
     );
   }

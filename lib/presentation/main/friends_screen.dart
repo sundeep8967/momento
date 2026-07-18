@@ -4,6 +4,7 @@ import '../../theme/colors.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 
 class FriendsScreen extends StatefulWidget {
   final String? initialSearch;
@@ -23,14 +24,16 @@ class _FriendsScreenState extends State<FriendsScreen>
   String? _searchError;
 
   List<UserProfile> _friends = [];
+  List<Group> _groups = [];
   List<Friendship> _pendingRequests = [];
+  Map<String, String> _requesterUsernames = {};
   UserProfile? _myProfile;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     if (widget.initialSearch != null) {
       _searchController.text = widget.initialSearch!;
       WidgetsBinding.instance.addPostFrameCallback((_) => _search());
@@ -49,12 +52,24 @@ class _FriendsScreenState extends State<FriendsScreen>
     setState(() => _isLoading = true);
     try {
       final friends = await FriendsRepository.instance.getMutualFriends();
+      final groups = await FriendsRepository.instance.getMyGroups();
       final pending = await FriendsRepository.instance.getPendingRequests();
       final me = await FriendsRepository.instance.getMyProfile();
+      
+      final requesterUsernames = <String, String>{};
+      for (final req in pending) {
+        final profile = await FriendsRepository.instance.getUserProfile(req.requestedBy);
+        if (profile != null) {
+          requesterUsernames[req.requestedBy] = profile.username;
+        }
+      }
+
       if (mounted) {
         setState(() {
           _friends = friends;
+          _groups = groups;
           _pendingRequests = pending;
+          _requesterUsernames = requesterUsernames;
           _myProfile = me;
           _isLoading = false;
         });
@@ -81,12 +96,23 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   Future<void> _sendRequest(String uid) async {
-    await FriendsRepository.instance.sendFriendRequest(uid);
+    // Optimistic UI: assume success and update immediately
+    setState(() => _searchResult = null);
+    _searchController.clear();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Friend request sent!')),
     );
-    setState(() => _searchResult = null);
-    _searchController.clear();
+    
+    // Perform in background
+    try {
+      await FriendsRepository.instance.sendFriendRequest(uid);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send request: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _acceptRequest(String requesterUid) async {
@@ -116,6 +142,13 @@ class _FriendsScreenState extends State<FriendsScreen>
           ),
         ),
         iconTheme: const IconThemeData(color: SetlogColors.authInk),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.group_add),
+            tooltip: 'Create Group',
+            onPressed: () => context.push('/friends/create_group'),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: SetlogColors.authInk,
@@ -153,6 +186,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                 ],
               ),
             ),
+            const Tab(text: 'Groups'),
             const Tab(text: 'Friends'),
           ],
         ),
@@ -162,6 +196,7 @@ class _FriendsScreenState extends State<FriendsScreen>
         children: [
           _buildSearchTab(),
           _buildRequestsTab(),
+          _buildGroupsTab(),
           _buildFriendsTab(),
         ],
       ),
@@ -222,7 +257,7 @@ class _FriendsScreenState extends State<FriendsScreen>
               child: OutlinedButton.icon(
                 onPressed: () {
                   Share.share(
-                    'Add me on Momento to see my private video logs! My username is @${_myProfile!.username}. Download the app here: https://momento.app/add/${_myProfile!.username}',
+                    'Add me on Momento to see my private video logs! My username is @${_myProfile!.username}.',
                   );
                 },
                 icon: const Icon(Icons.share, color: SetlogColors.authTerminalAccent),
@@ -334,7 +369,7 @@ class _FriendsScreenState extends State<FriendsScreen>
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
-                  requesterUid,
+                  _requesterUsernames[requesterUid] != null ? '@${_requesterUsernames[requesterUid]}' : requesterUid,
                   style: const TextStyle(
                       fontWeight: FontWeight.w600, color: SetlogColors.authInk),
                 ),
@@ -470,7 +505,7 @@ class _FriendsScreenState extends State<FriendsScreen>
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(width: 6),
-        const Icon(Icons.local_fire_department, color: SetlogColors.authTerminalAccent, size: 16),
+        const Icon(Icons.local_fire_department, color: SetlogColors.blueFlame, size: 16),
         const SizedBox(width: 2),
         Text(
           '${user.currentStreak}',
@@ -483,4 +518,84 @@ class _FriendsScreenState extends State<FriendsScreen>
       ],
     );
   }
+
+  Widget _buildGroupsTab() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_groups.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.groups_outlined, size: 56, color: SetlogColors.authStrokeSoft)
+                .animate(onPlay: (controller) => controller.repeat(reverse: true))
+                .scaleXY(end: 1.1, duration: 1500.ms, curve: Curves.easeInOut)
+                .animate()
+                .fadeIn(duration: 600.ms)
+                .scale(duration: 600.ms, curve: Curves.easeOutBack),
+            const SizedBox(height: 16),
+            const Text('No groups yet',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: SetlogColors.authInk))
+                .animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
+            const SizedBox(height: 8),
+            const Text('Create a group from the top right icon',
+                style: TextStyle(color: SetlogColors.authMuted))
+                .animate().fadeIn(delay: 300.ms),
+          ],
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(20),
+      itemCount: _groups.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (context, i) {
+        final g = _groups[i];
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: SetlogColors.authSurface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: SetlogColors.authStrokeSoft),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: SetlogColors.authTerminalAccent,
+                radius: 22,
+                child: Text(
+                  g.name.isNotEmpty ? g.name[0].toUpperCase() : '?',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      fontSize: 18),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(g.name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            color: SetlogColors.authInk)),
+                    Text('${g.members.length} members',
+                        style: const TextStyle(
+                            fontSize: 13, color: SetlogColors.authMuted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ).animate(delay: (i * 75).ms).fadeIn(duration: 400.ms).slideX(begin: 0.1, curve: Curves.easeOutQuad);
+      },
+    );
+  }
 }
+

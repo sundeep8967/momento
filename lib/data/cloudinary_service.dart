@@ -4,10 +4,12 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class CloudinaryService {
-  static Future<String> uploadRawVideo(String localFilePath) async {
-    final cloudName = dotenv.env['CLOUDINARY_CLOUD_NAME']!;
-    final apiKey = dotenv.env['CLOUDINARY_API_KEY']!;
-    final apiSecret = dotenv.env['CLOUDINARY_API_SECRET']!;
+  static Future<String> uploadRawVideo({
+    required String localFilePath,
+    required String cloudName,
+    required String apiKey,
+    required String apiSecret,
+  }) async {
 
     final uri = Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/video/upload');
     
@@ -29,11 +31,25 @@ class CloudinaryService {
     if (response.statusCode == 200) {
       final respStr = await response.stream.bytesToString();
       final jsonMap = jsonDecode(respStr);
-      return jsonMap['secure_url']; // The direct video URL
+      final secureUrl = jsonMap['secure_url'] as String;
+      // Inject auto-optimization flags
+      return secureUrl.replaceFirst('/upload/', '/upload/q_auto,f_auto/');
     } else {
       final err = await response.stream.bytesToString();
       throw Exception('Failed to upload video to Cloudinary: ${response.statusCode} - $err');
     }
+  }
+
+  static Future<String> uploadVideo(String localFilePath) async {
+    final cloudName = dotenv.env['CLOUDINARY_CLOUD_NAME']!;
+    final apiKey = dotenv.env['CLOUDINARY_API_KEY']!;
+    final apiSecret = dotenv.env['CLOUDINARY_API_SECRET']!;
+    return uploadRawVideo(
+      localFilePath: localFilePath,
+      cloudName: cloudName,
+      apiKey: apiKey,
+      apiSecret: apiSecret,
+    );
   }
 
   static Future<String> uploadImage(String localFilePath) async {

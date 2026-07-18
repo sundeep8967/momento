@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:camera/camera.dart';
@@ -26,6 +27,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   XFile? _recordedFile;
   bool _isReviewing = false;
+  bool _isVideo = true;
   final TextEditingController _captionController = TextEditingController();
   bool _showStreakCelebration = false;
   int _currentStreak = 0;
@@ -54,7 +56,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       );
       _cameraController = CameraController(
         frontCamera,
-        ResolutionPreset.high,
+        ResolutionPreset.medium, // 'medium' is much safer for Android hardware encoders to avoid green glitch artifacts
         enableAudio: true,
       );
       await _cameraController!.initialize();
@@ -70,6 +72,24 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     _cameraController?.dispose();
     _captionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _takePicture() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+    if (_cameraController!.value.isRecordingVideo) return;
+    HapticFeedback.mediumImpact();
+    try {
+      final file = await _cameraController!.takePicture();
+      if (mounted) {
+        setState(() {
+          _recordedFile = file;
+          _isVideo = false;
+          _isReviewing = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Take picture error: $e');
+    }
   }
 
   Future<void> _startRecording() async {
@@ -95,6 +115,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         setState(() {
           _isRecording = false;
           _recordedFile = file;
+          _isVideo = true;
           _isReviewing = true;
         });
       }
@@ -106,47 +127,22 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   Future<void> _saveClip() async {
     if (_recordedFile == null) return;
     HapticFeedback.lightImpact();
-    setState(() => _isSaving = true);
-    try {
-      final caption = _captionController.text.trim();
-      await LogRepository.instance.addClipToTodaysLog(_recordedFile!.path, caption: caption.isEmpty ? null : caption);
-      HapticFeedback.vibrate();
-      if (mounted) {
-        // Fetch streak for celebration
-        try {
-          final profileDoc = await FirebaseFirestore.instance.collection('users').doc(FirebaseAuth.instance.currentUser?.uid).get();
-          _currentStreak = profileDoc.data()?['currentStreak'] ?? 1;
-        } catch (_) {
-          _currentStreak = 1;
-        }
-
-        setState(() {
-          _isSaving = false;
-          _showStreakCelebration = true;
-        });
-
-        await Future.delayed(const Duration(milliseconds: 2000));
-        if (mounted) context.pop();
-      }
-    } catch (e) {
-      HapticFeedback.heavyImpact();
-      if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.wifi_off, color: Colors.white),
-                const SizedBox(width: 10),
-                Expanded(child: Text('Upload failed. Please check your internet connection: $e')),
-              ],
-            ),
-            backgroundColor: Colors.redAccent,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    }
+    
+    final caption = _captionController.text.trim();
+    
+    // Navigate to SendToScreen with the recorded file path and type
+    context.push('/main/send_to', extra: {
+      'mediaPath': _recordedFile!.path,
+      'isVideo': _isVideo,
+      'caption': caption.isEmpty ? null : caption,
+    });
+    
+    // Reset state here in case they go back
+    setState(() {
+      _recordedFile = null;
+      _isReviewing = false;
+      _captionController.clear();
+    });
   }
 
   void _discardClip() {
@@ -226,6 +222,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                 right: 0,
                 child: Center(
                   child: GestureDetector(
+                    onTap: _takePicture, // single tap for photo
                     onLongPressStart: (_) => _startRecording(),
                     onLongPressEnd: (_) => _stopRecording(),
                     child: Stack(
@@ -310,12 +307,18 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               Positioned(
                 bottom: 32,
                 right: 24,
-                child: FloatingActionButton.extended(
+                child: CupertinoButton.filled(
                   onPressed: _saveClip,
-                  backgroundColor: SetlogColors.authTerminalAccent,
-                  foregroundColor: SetlogColors.authInk,
-                  icon: const Icon(Icons.send),
-                  label: const Text('Save & Share', style: TextStyle(fontWeight: FontWeight.w700)),
+                  borderRadius: BorderRadius.circular(24),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Send To', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                      SizedBox(width: 8),
+                      Icon(CupertinoIcons.paperplane_fill, size: 20),
+                    ],
+                  ),
                 ),
               )
             ],
@@ -347,15 +350,16 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        '🔥',
-                        style: TextStyle(fontSize: 100),
+                      const Icon(
+                        Icons.local_fire_department,
+                        color: SetlogColors.blueFlame,
+                        size: 100,
                       ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
                       const SizedBox(height: 20),
                       Text(
                         'Streak +1',
                         style: const TextStyle(
-                          color: SetlogColors.authTerminalAccent,
+                          color: SetlogColors.brownPrimary,
                           fontSize: 32,
                           fontWeight: FontWeight.w800,
                         ),

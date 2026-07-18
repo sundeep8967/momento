@@ -44,3 +44,5 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .env
+momento-a05e0-firebase-adminsdk-fbsvc-2cb38a5c49.json
+assets/service_account.json

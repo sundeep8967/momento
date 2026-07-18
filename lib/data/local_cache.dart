@@ -1,29 +1,29 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:isar/isar.dart';
+import '../main.dart'; // To access global `isar` instance
 import 'friends_repository.dart';
 import 'log_repository.dart';
+import 'models/isar_models.dart';
 
 class LocalCache {
   static final LocalCache instance = LocalCache._internal();
   LocalCache._internal();
 
-  static const String _keyFriends = 'cached_friends';
-  static const String _keySharedLogs = 'cached_shared_logs';
-
   Future<void> cacheFriends(List<UserProfile> profiles) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jsonList = profiles.map((p) => {
-        'uid': p.uid,
-        'username': p.username,
-        'displayName': p.displayName,
-        'photoUrl': p.photoUrl,
-        'currentStreak': p.currentStreak,
-        'longestStreak': p.longestStreak,
-        'lastLogDate': p.lastLogDate,
-        'createdAt': p.createdAt?.millisecondsSinceEpoch,
-      }).toList();
-      await prefs.setString(_keyFriends, jsonEncode(jsonList));
+      final isarProfiles = profiles.map((p) => IsarUserProfile()
+        ..uid = p.uid
+        ..username = p.username
+        ..displayName = p.displayName
+        ..photoUrl = p.photoUrl
+        ..currentStreak = p.currentStreak
+        ..longestStreak = p.longestStreak
+        ..lastLogDate = p.lastLogDate
+      ).toList();
+
+      await isar.writeTxn(() async {
+        await isar.isarUserProfiles.putAll(isarProfiles);
+      });
     } catch (e) {
       // Ignore cache write errors
     }
@@ -31,23 +31,16 @@ class LocalCache {
 
   Future<List<UserProfile>> getCachedFriends() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jsonString = prefs.getString(_keyFriends);
-      if (jsonString == null) return [];
-      
-      final List<dynamic> jsonList = jsonDecode(jsonString);
-      return jsonList.map((map) {
-        return UserProfile(
-          uid: map['uid'],
-          username: map['username'],
-          displayName: map['displayName'],
-          photoUrl: map['photoUrl'] ?? '',
-          currentStreak: map['currentStreak'] ?? 0,
-          longestStreak: map['longestStreak'] ?? 0,
-          lastLogDate: map['lastLogDate'],
-          createdAt: map['createdAt'] != null ? DateTime.fromMillisecondsSinceEpoch(map['createdAt']) : null,
-        );
-      }).toList();
+      final isarProfiles = await isar.isarUserProfiles.where().findAll();
+      return isarProfiles.map((p) => UserProfile(
+        uid: p.uid,
+        username: p.username,
+        displayName: p.displayName,
+        photoUrl: p.photoUrl ?? '',
+        currentStreak: p.currentStreak,
+        longestStreak: p.longestStreak,
+        lastLogDate: p.lastLogDate,
+      )).toList();
     } catch (e) {
       return [];
     }
@@ -55,18 +48,26 @@ class LocalCache {
 
   Future<void> cacheSharedLogs(List<SharedLog> logs) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jsonList = logs.map((log) => {
-        'id': log.id,
-        'ownerUid': log.ownerUid,
-        'ownerUsername': log.ownerUsername,
-        'date': log.date,
-        'expiresAt': log.expiresAt.millisecondsSinceEpoch,
-        'clips': log.clips.map((c) => c.toMap()).toList(),
-        'viewers': log.viewers,
-        'reactions': log.reactions,
+      final isarLogs = logs.map((log) {
+        final clipsJson = jsonEncode(log.clips.map((c) => c.toMap()).toList());
+        final viewersJson = jsonEncode(log.viewers);
+        final reactionsJson = jsonEncode(log.reactions);
+
+        return IsarSharedLog()
+          ..shareId = log.id
+          ..ownerUid = log.ownerUid
+          ..ownerUsername = log.ownerUsername
+          ..date = log.date
+          ..expiresAt = log.expiresAt
+          ..isViewedByMe = log.isViewedByMe
+          ..clipsJson = clipsJson
+          ..viewersJson = viewersJson
+          ..reactionsJson = reactionsJson;
       }).toList();
-      await prefs.setString(_keySharedLogs, jsonEncode(jsonList));
+
+      await isar.writeTxn(() async {
+        await isar.isarSharedLogs.putAll(isarLogs);
+      });
     } catch (e) {
       // Ignore cache write errors
     }
@@ -74,25 +75,70 @@ class LocalCache {
 
   Future<List<SharedLog>> getCachedSharedLogs() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jsonString = prefs.getString(_keySharedLogs);
-      if (jsonString == null) return [];
-      
-      final List<dynamic> jsonList = jsonDecode(jsonString);
-      return jsonList.map((map) {
+      final isarLogs = await isar.isarSharedLogs.where().findAll();
+      return isarLogs.map((p) {
+        final clipsList = jsonDecode(p.clipsJson) as List<dynamic>;
+        final viewersMap = jsonDecode(p.viewersJson) as Map<String, dynamic>;
+        final reactionsMap = jsonDecode(p.reactionsJson) as Map<String, dynamic>;
+
         return SharedLog(
-          id: map['id'],
-          ownerUid: map['ownerUid'],
-          ownerUsername: map['ownerUsername'],
-          date: map['date'],
-          expiresAt: DateTime.fromMillisecondsSinceEpoch(map['expiresAt']),
-          clips: (map['clips'] as List<dynamic>?)?.map((c) => SharedClip.fromMap(Map<String, dynamic>.from(c))).toList() ?? [],
-          viewers: Map<String, dynamic>.from(map['viewers'] ?? {}),
-          reactions: Map<String, dynamic>.from(map['reactions'] ?? {}),
+          id: p.shareId,
+          ownerUid: p.ownerUid,
+          ownerUsername: p.ownerUsername,
+          date: p.date,
+          expiresAt: p.expiresAt,
+          clips: clipsList.map((c) => SharedClip.fromMap(Map<String, dynamic>.from(c))).toList(),
+          viewers: viewersMap,
+          reactions: reactionsMap,
         );
       }).toList();
     } catch (e) {
       return [];
     }
+  }
+
+  Future<void> cacheMyLogs(List<DayLog> logs) async {
+    try {
+      final isarLogs = logs.map((l) => IsarDayLog()
+        ..logId = l.id
+        ..date = l.date
+        ..isClosed = l.isClosed
+        ..closedAt = l.closedAt
+        ..clipCount = l.clipCount
+        ..thumbnailUrl = l.thumbnailUrl
+        ..updatedAt = DateTime.now()
+      ).toList();
+
+      await isar.writeTxn(() async {
+        await isar.isarDayLogs.putAll(isarLogs);
+      });
+    } catch (_) {}
+  }
+
+  Future<List<DayLog>> getCachedMyLogs() async {
+    try {
+      // Assuming sorting by date in memory if no index exists, or we can just fetch all and let Dart sort
+      final isarLogs = await isar.isarDayLogs.where().findAll();
+      final logs = isarLogs.map((p) => DayLog(
+        id: p.logId,
+        date: p.date,
+        isClosed: p.isClosed,
+        closedAt: p.closedAt,
+        clipCount: p.clipCount,
+        thumbnailUrl: p.thumbnailUrl,
+      )).toList();
+      logs.sort((a, b) => b.date.compareTo(a.date));
+      return logs;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<void> clearAll() async {
+    try {
+      await isar.writeTxn(() async {
+        await isar.clear();
+      });
+    } catch (_) {}
   }
 }

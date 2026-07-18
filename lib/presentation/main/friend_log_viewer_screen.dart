@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../../data/video_proxy_server.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../data/log_repository.dart';
@@ -26,6 +28,7 @@ class _FriendLogViewerScreenState extends State<FriendLogViewerScreen> {
   SharedLog? _log;
   int _currentIndex = 0;
   VideoPlayerController? _videoController;
+  VideoPlayerController? _nextController; // pre-buffered next clip
   bool _isLoading = true;
   bool _showEmojiPicker = false;
   
@@ -55,21 +58,49 @@ class _FriendLogViewerScreenState extends State<FriendLogViewerScreen> {
 
   Future<void> _playClip(int index) async {
     if (_log == null || index >= _log!.clips.length) return;
-    await _videoController?.dispose();
-    final clip = _log!.clips[index];
-    final controller = VideoPlayerController.networkUrl(Uri.parse(clip.cloudUrl));
-    await controller.initialize();
+
+    VideoPlayerController controller;
+
+    // Use pre-buffered controller if available, otherwise initialize fresh
+    if (_nextController != null) {
+      controller = _nextController!;
+      _nextController = null;
+    } else {
+      final clip = _log!.clips[index];
+      final proxyUrl = VideoProxyServer.instance.getProxyUrl(clip.cloudUrl, clip.id);
+      controller = VideoPlayerController.networkUrl(Uri.parse(proxyUrl));
+      await controller.initialize();
+    }
+
     controller.setLooping(false);
+    bool _advanced = false;
     controller.addListener(() {
-      if (controller.value.position >= controller.value.duration &&
+      if (!_advanced &&
           controller.value.isInitialized &&
-          !controller.value.isPlaying) {
+          !controller.value.isPlaying &&
+          controller.value.position >= controller.value.duration - const Duration(milliseconds: 100)) {
+        _advanced = true;
         _advanceClip();
       }
     });
+
+    // Dispose old, swap in new
+    final old = _videoController;
     if (mounted) {
       setState(() => _videoController = controller);
       controller.play();
+    }
+    await old?.dispose();
+
+    // Pre-buffer the NEXT clip in the background
+    final nextIndex = index + 1;
+    if (_log != null && nextIndex < _log!.clips.length) {
+      final nextClip = _log!.clips[nextIndex];
+      final nextProxyUrl = VideoProxyServer.instance.getProxyUrl(nextClip.cloudUrl, nextClip.id);
+      final next = VideoPlayerController.networkUrl(Uri.parse(nextProxyUrl));
+      next.initialize().then((_) {
+        if (mounted) _nextController = next;
+      });
     }
   }
 
@@ -156,6 +187,7 @@ class _FriendLogViewerScreenState extends State<FriendLogViewerScreen> {
   @override
   void dispose() {
     _videoController?.dispose();
+    _nextController?.dispose();
     super.dispose();
   }
 

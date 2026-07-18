@@ -1,9 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:video_compress/video_compress.dart';
 import 'cloudinary_service.dart';
 import 'local_cache.dart';
+import 'dart:io';
+import 'dart:isolate';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:path_provider/path_provider.dart';
 
 // ─────────────────────────────────────────────
 // Models
@@ -15,6 +20,7 @@ class DayLog {
   final bool isClosed;
   final DateTime? closedAt;
   final int clipCount;
+  final String? thumbnailUrl;
 
   DayLog({
     required this.id,
@@ -22,6 +28,7 @@ class DayLog {
     required this.isClosed,
     this.closedAt,
     required this.clipCount,
+    this.thumbnailUrl,
   });
 
   Map<String, dynamic> toMap() => {
@@ -29,6 +36,7 @@ class DayLog {
         'isClosed': isClosed,
         'closedAt': closedAt?.toIso8601String(),
         'clipCount': clipCount,
+        'thumbnailUrl': thumbnailUrl,
       };
 
   factory DayLog.fromMap(String id, Map<String, dynamic> map) => DayLog(
@@ -37,12 +45,14 @@ class DayLog {
         isClosed: map['isClosed'] ?? false,
         closedAt: map['closedAt'] != null ? DateTime.tryParse(map['closedAt']) : null,
         clipCount: map['clipCount'] ?? 0,
+        thumbnailUrl: map['thumbnailUrl'],
       );
 }
 
 class DayClip {
   final String id;
   final String cloudUrl;
+  final String? localPath;
   final DateTime timestamp;
   final int order;
   final String? caption;
@@ -50,6 +60,7 @@ class DayClip {
   DayClip({
     required this.id,
     required this.cloudUrl,
+    this.localPath,
     required this.timestamp,
     required this.order,
     this.caption,
@@ -58,6 +69,7 @@ class DayClip {
   Map<String, dynamic> toMap() => {
         'id': id,
         'cloudUrl': cloudUrl,
+        'localPath': localPath,
         'timestamp': timestamp.toIso8601String(),
         'order': order,
         'caption': caption,
@@ -66,6 +78,7 @@ class DayClip {
   factory DayClip.fromMap(Map<String, dynamic> map) => DayClip(
         id: map['id'] ?? '',
         cloudUrl: map['cloudUrl'] ?? '',
+        localPath: map['localPath'],
         timestamp: DateTime.tryParse(map['timestamp'] ?? '') ?? DateTime.now(),
         order: map['order'] ?? 0,
         caption: map['caption'],
@@ -154,8 +167,14 @@ class SharedClip {
 // Repository
 // ─────────────────────────────────────────────
 
+final logRepositoryProvider = Provider<LogRepository>((ref) {
+  return LogRepository._internal();
+});
+
 class LogRepository {
+  // Keep instance for legacy compatibility during migration
   static final LogRepository instance = LogRepository._internal();
+  
   LogRepository._internal();
 
   static final _db = FirebaseFirestore.instance;
@@ -185,36 +204,31 @@ class LogRepository {
     final uid = _uid;
     if (uid == null) throw Exception('Not authenticated');
     final log = await getOrCreateTodaysLog();
-    
-    // Compress video to save bandwidth and Cloudinary storage
-    final mediaInfo = await VideoCompress.compressVideo(
-      localFilePath,
-      quality: VideoQuality.LowQuality,
-      deleteOrigin: false,
-    );
-    final uploadPath = mediaInfo?.file?.path ?? localFilePath;
-    
-    final cloudUrl = await CloudinaryService.uploadRawVideo(uploadPath);
-    
-    // Clean up compression cache to avoid storage bloat
-    try {
-      await VideoCompress.deleteAllCache();
-    } catch (_) {}
-
     final clipId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    // 1. Save locally to permanent docs dir
+    final docsDir = await getApplicationDocumentsDirectory();
+    final persistentPath = '${docsDir.path}/clip_$clipId.mp4';
+    await File(localFilePath).copy(persistentPath);
+
+    // 2. Create the clip doc instantly
     final clip = DayClip(
       id: clipId,
-      cloudUrl: cloudUrl,
+      cloudUrl: '', // Will be updated by background task
+      localPath: persistentPath,
       timestamp: DateTime.now(),
       order: log.clipCount,
       caption: caption,
     );
+    
     final batch = _db.batch();
     batch.set(
       _logsRef(uid).doc(log.id).collection('clips').doc(clipId),
       clip.toMap(),
     );
-    batch.update(_logsRef(uid).doc(log.id), {'clipCount': FieldValue.increment(1)});
+    batch.update(_logsRef(uid).doc(log.id), {
+      'clipCount': FieldValue.increment(1),
+    });
     
     // Evaluate Streaks if this is the first clip of the day
     if (log.clipCount == 0) {
@@ -255,15 +269,67 @@ class LogRepository {
     }
     
     await batch.commit();
+
+    // 3. Start background upload without awaiting
+    _uploadClipBackground(persistentPath, uid, log.id, clipId);
+  }
+
+  Future<void> _uploadClipBackground(String localFilePath, String uid, String logId, String clipId) async {
+    try {
+      final mediaInfo = await VideoCompress.compressVideo(
+        localFilePath,
+        quality: VideoQuality.LowQuality,
+        deleteOrigin: false,
+      );
+      final uploadPath = mediaInfo?.file?.path ?? localFilePath;
+      
+      final cloudName = dotenv.env['CLOUDINARY_CLOUD_NAME']!;
+      final apiKey = dotenv.env['CLOUDINARY_API_KEY']!;
+      final apiSecret = dotenv.env['CLOUDINARY_API_SECRET']!;
+
+      final cloudUrl = await Isolate.run(() async {
+        return await CloudinaryService.uploadRawVideo(
+          localFilePath: uploadPath,
+          cloudName: cloudName,
+          apiKey: apiKey,
+          apiSecret: apiSecret,
+        );
+      });
+      
+      try {
+        await VideoCompress.deleteAllCache();
+      } catch (_) {}
+
+      final thumbnailUrl = cloudUrl.replaceAll(RegExp(r'\.mp4|\.webm|\.mov', caseSensitive: false), '.jpg');
+      
+      final batch = _db.batch();
+      batch.update(
+        _logsRef(uid).doc(logId).collection('clips').doc(clipId),
+        {'cloudUrl': cloudUrl},
+      );
+      batch.update(
+        _logsRef(uid).doc(logId),
+        {'thumbnailUrl': thumbnailUrl},
+      );
+      await batch.commit();
+    } catch (e) {
+      // Background upload failed
+    }
+  }
+
+  Future<List<DayLog>> getCachedMyLogs() async {
+    return await LocalCache.instance.getCachedMyLogs();
   }
 
   Future<List<DayLog>> getMyDayLogs() async {
     final uid = _uid;
     if (uid == null) return [];
     final snap = await _logsRef(uid).orderBy('date', descending: true).limit(60).get();
-    return snap.docs
+    final logs = snap.docs
         .map((d) => DayLog.fromMap(d.id, d.data() as Map<String, dynamic>))
         .toList();
+    await LocalCache.instance.cacheMyLogs(logs);
+    return logs;
   }
 
   Future<List<DayClip>> getMyClipsForLog(String logId) async {
@@ -286,6 +352,31 @@ class LogRepository {
     }
   }
 
+  /// Called when user taps "Send to Squad" from the OwnLogViewerScreen.
+  /// Fetches current mutual friends and closes + shares the log immediately.
+  Future<void> manualShareLog(String logId) async {
+    final uid = _uid;
+    if (uid == null) throw Exception('Not authenticated');
+    // Get mutual friend UIDs for the viewers list
+    final snap = await _db
+        .collection('friendships')
+        .where('users', arrayContains: uid)
+        .where('status', isEqualTo: 'accepted')
+        .get();
+    final friendUids = snap.docs
+        .map((d) => (d.data()['users'] as List).cast<String>().firstWhere((u) => u != uid, orElse: () => ''))
+        .where((u) => u.isNotEmpty)
+        .toList();
+
+    final logDoc = await _logsRef(uid).doc(logId).get();
+    if (!logDoc.exists) throw Exception('Log not found');
+    final log = DayLog.fromMap(logDoc.id, logDoc.data() as Map<String, dynamic>);
+    if (log.isClosed) throw Exception('Already sent');
+    if (log.clipCount == 0) throw Exception('No clips to send');
+
+    await _closeAndShareLog(log, friendUids);
+  }
+
   Future<void> _closeAndShareLog(DayLog log, List<String> viewerUids) async {
     final uid = _uid;
     if (uid == null) return;
@@ -294,6 +385,8 @@ class LogRepository {
     final userDoc = await _db.collection('users').doc(uid).get();
     final username = (userDoc.data()?['username'] as String?) ?? 'unknown';
     final viewersMap = <String, dynamic>{};
+    // Always add self as a viewer — your own day appears in your own Squad ring
+    viewersMap[uid] = {'viewedAt': null, 'lastClipIndex': 0};
     for (final vUid in viewerUids) {
       viewersMap[vUid] = {'viewedAt': null, 'lastClipIndex': 0};
     }

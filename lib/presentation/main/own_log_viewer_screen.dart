@@ -7,11 +7,13 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:gal/gal.dart';
 import '../../data/log_repository.dart';
+import '../../data/video_proxy_server.dart';
 
 class OwnLogViewerScreen extends StatefulWidget {
   final String logId; // date string "2026-06-26"
+  final bool isClosed; // true if already sent to squad
 
-  const OwnLogViewerScreen({super.key, required this.logId});
+  const OwnLogViewerScreen({super.key, required this.logId, this.isClosed = false});
 
   @override
   State<OwnLogViewerScreen> createState() => _OwnLogViewerScreenState();
@@ -21,11 +23,15 @@ class _OwnLogViewerScreenState extends State<OwnLogViewerScreen> {
   List<DayClip> _clips = [];
   int _currentIndex = 0;
   VideoPlayerController? _videoController;
+  VideoPlayerController? _nextController;
   bool _isLoading = true;
+  bool _isSending = false;
+  late bool _isClosed;
 
   @override
   void initState() {
     super.initState();
+    _isClosed = widget.isClosed;
     _load();
   }
 
@@ -41,23 +47,48 @@ class _OwnLogViewerScreenState extends State<OwnLogViewerScreen> {
     }
   }
 
+  Future<VideoPlayerController> _createController(DayClip clip) async {
+    final proxyUrl = VideoProxyServer.instance.getProxyUrl(clip.cloudUrl, clip.id);
+    return VideoPlayerController.networkUrl(Uri.parse(proxyUrl));
+  }
+
   Future<void> _playClip(int index) async {
     if (index >= _clips.length) return;
-    await _videoController?.dispose();
-    final clip = _clips[index];
-    final controller = VideoPlayerController.networkUrl(Uri.parse(clip.cloudUrl));
-    await controller.initialize();
+
+    VideoPlayerController controller;
+    if (_nextController != null) {
+      controller = _nextController!;
+      _nextController = null;
+    } else {
+      final clip = _clips[index];
+      controller = await _createController(clip);
+      await controller.initialize();
+    }
+
     controller.setLooping(false);
+    bool _advanced = false;
     controller.addListener(() {
-      if (controller.value.position >= controller.value.duration &&
+      if (!_advanced &&
           controller.value.isInitialized &&
-          !controller.value.isPlaying) {
+          !controller.value.isPlaying &&
+          controller.value.position >= controller.value.duration - const Duration(milliseconds: 100)) {
+        _advanced = true;
         _advance();
       }
     });
+
+    final old = _videoController;
     if (mounted) {
       setState(() => _videoController = controller);
       controller.play();
+    }
+    await old?.dispose();
+
+    // Pre-buffer next
+    final nextIndex = index + 1;
+    if (nextIndex < _clips.length) {
+      final next = await _createController(_clips[nextIndex]);
+      next.initialize().then((_) { if (mounted) _nextController = next; });
     }
   }
 
@@ -112,11 +143,9 @@ class _OwnLogViewerScreenState extends State<OwnLogViewerScreen> {
   }
 
   Future<void> _deleteClip() async {
-    if (_clips.isEmpty) return;
+    if (_clips.isEmpty || _isClosed) return;
     HapticFeedback.mediumImpact();
     final clip = _clips[_currentIndex];
-    
-    // Pause video
     _videoController?.pause();
     
     final confirm = await showDialog<bool>(
@@ -132,10 +161,7 @@ class _OwnLogViewerScreenState extends State<OwnLogViewerScreen> {
       )
     );
     
-    if (confirm != true) {
-      _videoController?.play();
-      return;
-    }
+    if (confirm != true) { _videoController?.play(); return; }
     
     try {
       await LogRepository.instance.deleteClip(widget.logId, clip.id);
@@ -152,13 +178,43 @@ class _OwnLogViewerScreenState extends State<OwnLogViewerScreen> {
         });
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error deleting clip: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _sendToSquad() async {
+    if (_isSending || _isClosed || _clips.isEmpty) return;
+    HapticFeedback.mediumImpact();
+    setState(() => _isSending = true);
+    try {
+      await LogRepository.instance.manualShareLog(widget.logId);
+      HapticFeedback.vibrate();
+      if (mounted) {
+        setState(() { _isClosed = true; _isSending = false; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(children: [
+              Icon(Icons.check_circle, color: Color(0xFF7B4F2E)),
+              SizedBox(width: 10),
+              Text('Sent to your Squad! 🎉', style: TextStyle(fontWeight: FontWeight.w700)),
+            ]),
+            backgroundColor: Colors.white,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSending = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
     }
   }
 
   @override
   void dispose() {
     _videoController?.dispose();
+    _nextController?.dispose();
     super.dispose();
   }
 
@@ -299,21 +355,54 @@ class _OwnLogViewerScreenState extends State<OwnLogViewerScreen> {
                         textAlign: TextAlign.center,
                       ),
                     ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.download, color: Colors.white, size: 28),
+                        icon: const Icon(Icons.download, color: Colors.white, size: 26),
                         onPressed: _downloadClip,
                       ),
-                      const SizedBox(width: 32),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 28),
-                        onPressed: _deleteClip,
-                      ),
+                      if (!_isClosed) ...[
+                        const SizedBox(width: 16),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 26),
+                          onPressed: _deleteClip,
+                        ),
+                      ],
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  if (!_isClosed)
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _isSending ? null : _sendToSquad,
+                        icon: _isSending
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.send_rounded),
+                        label: Text(_isSending ? 'Sending...' : 'Send to Squad 🚀'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF7B4F2E),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white12,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.check_circle, color: Colors.greenAccent, size: 16),
+                        SizedBox(width: 8),
+                        Text('Sent to Squad', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                      ]),
+                    ),
                 ],
               ),
             ),

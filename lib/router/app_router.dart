@@ -7,13 +7,18 @@ import '../presentation/auth/username_setup_screen.dart';
 import '../presentation/auth/onboarding_screen.dart';
 import '../presentation/main/collections_home_screen.dart';
 import '../presentation/main/camera_capture_screen.dart';
+import '../presentation/main/send_to_screen.dart';
 import '../presentation/main/friend_log_viewer_screen.dart';
 import '../presentation/main/own_log_viewer_screen.dart';
 import '../presentation/main/friends_screen.dart';
 import '../presentation/main/profile_screen.dart';
+import '../presentation/groups/create_group_screen.dart';
+import '../presentation/main/snap_viewer_screen.dart';
+import '../data/snap_repository.dart';
 import '../presentation/splash/animated_splash_screen.dart';
 import '../theme/colors.dart';
 
+// Splash still uses fade route to avoid slide-in on app open
 CustomTransitionPage<void> _fadeRoute(GoRouterState state, Widget child) {
   return CustomTransitionPage<void>(
     key: state.pageKey,
@@ -40,23 +45,23 @@ final GoRouter appRouter = GoRouter(
       routes: [
         GoRoute(
           path: '/auth/landing',
-          pageBuilder: (context, state) => _fadeRoute(state, const AuthLandingScreen()),
+          builder: (context, state) => const AuthLandingScreen(),
         ),
         GoRoute(
           path: '/auth/email',
-          pageBuilder: (context, state) => _fadeRoute(state, const AuthEmailScreen()),
+          builder: (context, state) => const AuthEmailScreen(),
         ),
         GoRoute(
           path: '/auth/username',
-          pageBuilder: (context, state) => _fadeRoute(state, const UsernameSetupScreen()),
+          builder: (context, state) => const UsernameSetupScreen(),
         ),
         GoRoute(
           path: '/auth/permissions',
-          pageBuilder: (context, state) => _fadeRoute(state, const PermissionsScreen()),
+          builder: (context, state) => const PermissionsScreen(),
         ),
         GoRoute(
           path: '/auth/onboarding',
-          pageBuilder: (context, state) => _fadeRoute(state, const OnboardingScreen()),
+          builder: (context, state) => const OnboardingScreen(),
         ),
       ],
     ),
@@ -64,22 +69,45 @@ final GoRouter appRouter = GoRouter(
     // ── Main App ──
     GoRoute(
       path: '/main',
-      pageBuilder: (context, state) => _fadeRoute(state, const CollectionsHomeScreen()),
+      builder: (context, state) => const CollectionsHomeScreen(),
       routes: [
         GoRoute(
+          path: 'collections',
+          builder: (context, state) => const CollectionsHomeScreen(),
+        ),
+        GoRoute(
           path: 'camera',
-          pageBuilder: (context, state) => _fadeRoute(state, const CameraCaptureScreen()),
+          builder: (context, state) => const CameraCaptureScreen(),
+        ),
+        GoRoute(
+          path: 'send_to',
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>;
+            return SendToScreen(
+              mediaPath: extra['mediaPath'] as String,
+              isVideo: extra['isVideo'] as bool,
+              caption: extra['caption'] as String?,
+            );
+          },
+        ),
+        GoRoute(
+          path: 'snap_viewer',
+          builder: (context, state) {
+            final snaps = state.extra as List<DirectSnap>;
+            return SnapViewerScreen(snaps: snaps);
+          },
         ),
         GoRoute(
           path: 'daylog/:logId',
-          pageBuilder: (context, state) {
+          builder: (context, state) {
             final logId = state.pathParameters['logId']!;
-            return _fadeRoute(state, OwnLogViewerScreen(logId: logId));
+            final isClosed = state.uri.queryParameters['closed'] == 'true';
+            return OwnLogViewerScreen(logId: logId, isClosed: isClosed);
           },
         ),
         GoRoute(
           path: 'profile',
-          pageBuilder: (context, state) => _fadeRoute(state, const ProfileScreen()),
+          builder: (context, state) => const ProfileScreen(),
         ),
       ],
     ),
@@ -87,20 +115,24 @@ final GoRouter appRouter = GoRouter(
     // ── Friends & Social ──
     GoRoute(
       path: '/friends',
-      pageBuilder: (context, state) => _fadeRoute(state, const FriendsScreen()),
+      builder: (context, state) => const FriendsScreen(),
       routes: [
         GoRoute(
+          path: 'create_group',
+          builder: (context, state) => const CreateGroupScreen(),
+        ),
+        GoRoute(
           path: 'log/:shareId',
-          pageBuilder: (context, state) {
+          builder: (context, state) {
             final shareId = state.pathParameters['shareId']!;
-            return _fadeRoute(state, FriendLogViewerScreen(shareId: shareId));
+            return FriendLogViewerScreen(shareId: shareId);
           },
         ),
         GoRoute(
           path: 'add/:username',
-          pageBuilder: (context, state) {
-            final username = state.pathParameters['username']!;
-            return _fadeRoute(state, FriendsScreen(initialSearch: username));
+          builder: (context, state) {
+            final initialSearch = state.pathParameters['username'];
+            return FriendsScreen(initialSearch: initialSearch);
           },
         ),
       ],

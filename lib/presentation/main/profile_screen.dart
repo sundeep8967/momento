@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -8,6 +9,8 @@ import 'package:share_plus/share_plus.dart';
 import '../../theme/colors.dart';
 import '../../data/friends_repository.dart';
 import '../../data/cloudinary_service.dart';
+import '../../data/local_cache.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -86,6 +89,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _signOut() async {
+    await LocalCache.clearAll();
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {}
     await FirebaseAuth.instance.signOut();
     if (mounted) {
       context.go('/auth/landing');
@@ -200,11 +207,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                         ],
                       ),
-                    )
-                    .animate(onPlay: (c) => c.repeat(reverse: true))
-                    .scaleXY(end: 1.05, duration: 2000.ms, curve: Curves.easeInOut)
-                    .animate()
-                    .scale(duration: 400.ms, curve: Curves.easeOutBack),
+                    ).animate().scaleXY(end: 1.05, duration: 2000.ms, curve: Curves.easeInOut).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
                     const SizedBox(height: 24),
                     const Text(
                       'YOUR USERNAME',
@@ -236,7 +239,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           if (_currentStreak > 0) ...[
                             const SizedBox(width: 8),
-                            const Icon(Icons.local_fire_department, color: SetlogColors.authTerminalAccent, size: 24),
+                            const Icon(Icons.local_fire_department, color: SetlogColors.blueFlame, size: 24),
                             const SizedBox(width: 2),
                             Text(
                               '$_currentStreak',
@@ -273,70 +276,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ).animate().fadeIn(delay: 250.ms).slideY(begin: 0.1),
                     ],
 
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      child: CupertinoButton(
+                        color: SetlogColors.authInk,
+                        onPressed: () {
+                          if (_username != null) {
+                            Share.share('Add me on Momento to see my private video logs! My username is @$_username.');
+                          }
+                        },
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(CupertinoIcons.share, color: Colors.white, size: 20),
+                            SizedBox(width: 8),
+                            Text('Share Profile', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 17, color: Colors.white)),
+                          ],
+                        ),
+                      ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.1),
+                    ),
+
                     const Spacer(),
-                    if (_username != null && _username != 'Unknown')
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Share.share(
-                              'Add me on Momento to see my private video logs! My username is @$_username. Download the app here: https://momento.app/add/$_username',
-                            );
-                          },
-                          icon: const Icon(Icons.share, color: Colors.white),
-                          label: const Text(
-                            'Share Invite Link',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: SetlogColors.authTerminalAccent,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          ),
-                        ),
-                      ).animate().fadeIn(delay: 280.ms),
+
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
-                      height: 56,
-                      child: OutlinedButton.icon(
+                      child: CupertinoButton(
                         onPressed: _signOut,
-                        icon: const Icon(Icons.logout, color: Colors.black87),
-                        label: const Text(
-                          'Sign Out',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
+                        color: CupertinoColors.systemGrey6,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(CupertinoIcons.square_arrow_right, color: CupertinoColors.black, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Sign Out',
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 17, color: CupertinoColors.black),
+                            ),
+                          ],
                         ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.black26),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        ),
-                      ),
-                    ).animate().fadeIn(delay: 300.ms),
+                      ).animate().fadeIn(delay: 300.ms),
+                    ),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
-                      height: 56,
-                      child: TextButton.icon(
+                      child: CupertinoButton(
                         onPressed: _deleteAccount,
-                        icon: const Icon(Icons.delete_forever, color: Colors.redAccent),
-                        label: const Text(
-                          'Delete Account',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.redAccent,
-                          ),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(CupertinoIcons.delete, color: CupertinoColors.destructiveRed, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Delete Account',
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 17, color: CupertinoColors.destructiveRed),
+                            ),
+                          ],
                         ),
-                      ),
-                    ).animate().fadeIn(delay: 400.ms),
+                      ).animate().fadeIn(delay: 400.ms),
+                    ),
                   ],
                 ),
               ),

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'push_notification_service.dart';
 import 'local_cache.dart';
 
@@ -60,8 +61,38 @@ class Friendship {
       );
 }
 
+class Group {
+  final String id;
+  final String name;
+  final List<String> members;
+  final String createdBy;
+  final DateTime createdAt;
+
+  Group({
+    required this.id,
+    required this.name,
+    required this.members,
+    required this.createdBy,
+    required this.createdAt,
+  });
+
+  factory Group.fromFirestore(String id, Map<String, dynamic> data) => Group(
+        id: id,
+        name: data['name'] ?? '',
+        members: List<String>.from(data['members'] ?? []),
+        createdBy: data['createdBy'] ?? '',
+        createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      );
+}
+
+final friendsRepositoryProvider = Provider<FriendsRepository>((ref) {
+  return FriendsRepository._internal();
+});
+
 class FriendsRepository {
+  // Keep instance for legacy compatibility during migration
   static final FriendsRepository instance = FriendsRepository._internal();
+  
   FriendsRepository._internal();
 
   static final _db = FirebaseFirestore.instance;
@@ -208,6 +239,10 @@ class FriendsRepository {
   Future<UserProfile?> getMyProfile() async {
     final uid = _uid;
     if (uid == null) return null;
+    return getUserProfile(uid);
+  }
+
+  Future<UserProfile?> getUserProfile(String uid) async {
     final doc = await _db.collection('users').doc(uid).get();
     if (!doc.exists) return null;
     return UserProfile.fromMap(doc.id, doc.data()!);
@@ -244,5 +279,35 @@ class FriendsRepository {
 
     // Remove friendship if exists
     await declineOrRemove(targetUid);
+  }
+
+  // ─────────────────────────────────────────────
+  // Groups
+  // ─────────────────────────────────────────────
+
+  Future<void> createGroup(String name, List<String> friendUids) async {
+    final uid = _uid;
+    if (uid == null) return;
+    
+    final members = [uid, ...friendUids];
+    
+    await _db.collection('groups').add({
+      'name': name,
+      'members': members,
+      'createdBy': uid,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<List<Group>> getMyGroups() async {
+    final uid = _uid;
+    if (uid == null) return [];
+    
+    final snap = await _db
+        .collection('groups')
+        .where('members', arrayContains: uid)
+        .get();
+        
+    return snap.docs.map((d) => Group.fromFirestore(d.id, d.data())).toList();
   }
 }

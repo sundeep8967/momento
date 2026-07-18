@@ -6,6 +6,11 @@ import 'firebase_options.dart';
 import 'router/app_router.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'theme/colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:isar/isar.dart';
+import 'package:path_provider/path_provider.dart';
+import 'data/models/isar_models.dart';
+import 'data/video_proxy_server.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -15,12 +20,22 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint("Handling a background message: ${message.messageId}");
 }
 
+late Isar isar;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  final dir = await getApplicationDocumentsDirectory();
+  isar = await Isar.open(
+    [IsarDayLogSchema, IsarSharedLogSchema, IsarUserProfileSchema],
+    directory: dir.path,
+  );
+  
+  await VideoProxyServer.instance.start();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   
   // Setup App Links
@@ -32,7 +47,7 @@ void main() async {
     }
   });
 
-  runApp(const MomentoApp());
+  runApp(const ProviderScope(child: MomentoApp()));
 }
 
 class MomentoApp extends StatelessWidget {
