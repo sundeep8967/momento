@@ -99,13 +99,13 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                   children: [
                     CupertinoButton(
                       padding: EdgeInsets.zero,
-                      child: const Icon(Icons.person_outline, color: SetlogColors.collectionsHomeTextPrimary, size: 26),
+                      child: const Icon(CupertinoIcons.person_crop_circle, color: SetlogColors.collectionsHomeTextPrimary, size: 26),
                       onPressed: () => context.push('/main/profile'),
                     ),
                     const SizedBox(width: 8),
                     CupertinoButton(
                       padding: EdgeInsets.zero,
-                      child: const Icon(Icons.group_outlined, color: SetlogColors.collectionsHomeTextPrimary, size: 26),
+                      child: const Icon(CupertinoIcons.person_2, color: SetlogColors.collectionsHomeTextPrimary, size: 26),
                       onPressed: () => context.push('/friends'),
                     ),
                   ],
@@ -142,15 +142,54 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          context.push('/main/camera');
-        },
-        backgroundColor: SetlogColors.authInk,
-        foregroundColor: Colors.white,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.videocam, size: 28),
-      ).animate().scale(delay: 400.ms, duration: 400.ms, curve: Curves.easeOutBack),
+      floatingActionButton: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: SetlogColors.authInk.withOpacity(0.85),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.25),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(30),
+                onTap: () {
+                  context.push('/main/camera');
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(CupertinoIcons.camera_fill, color: Colors.white, size: 22),
+                      SizedBox(width: 8),
+                      Text(
+                        'Capture',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ).animate().scale(delay: 300.ms, duration: 400.ms, curve: Curves.easeOutBack),
     );
   }
 
@@ -161,118 +200,111 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
     
     final isNew = userSnaps.any((s) => !s.isViewed);
     final unreadSnaps = userSnaps.where((s) => !s.isViewed).toList();
-    final snapsToPlay = unreadSnaps.isNotEmpty ? unreadSnaps.reversed.toList() : userSnaps; // Play oldest unread first
     
     final isMe = snap.senderUid == currentUid;
     final displayName = isMe ? "${snap.senderUsername} (you)" : snap.senderUsername;
     final unreadCount = unreadSnaps.length;
 
-    return InkWell(
-      onTap: () async {
-        // Always play snaps. Play unread ones if available, otherwise replay all.
-        final snapsList = unreadSnaps.isNotEmpty ? unreadSnaps.reversed.toList() : userSnaps.reversed.toList();
-        await context.push('/main/snap_viewer', extra: snapsList);
-      },
-      child: Container(
-        color: SetlogColors.collectionsHomeBackground,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Row(
-          children: [
-            // Minimalist Avatar with floating unread dot
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: SetlogColors.authSurface,
-                  child: Text(
-                    snap.senderUsername.isNotEmpty ? snap.senderUsername[0].toUpperCase() : '?',
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 20, color: SetlogColors.authInk),
-                  ),
-                ),
-                // Removed redundant floating dot
-              ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () async {
+            final snapsList = unreadSnaps.isNotEmpty ? unreadSnaps.reversed.toList() : userSnaps.reversed.toList();
+            await context.push('/main/snap_viewer', extra: snapsList);
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: SetlogColors.collectionsHomeSurface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isNew ? SetlogColors.momentoPinkBorder : SetlogColors.authStrokeSoft.withOpacity(0.5),
+                width: 1,
+              ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    displayName,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: (isNew && !isMe) ? FontWeight.w600 : FontWeight.w400,
-                      color: SetlogColors.collectionsHomeTextPrimary,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                // Radiant Avatar Ring for unread snaps
+                Container(
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: isNew && !isMe
+                        ? const LinearGradient(
+                            colors: [SetlogColors.momentoPink, SetlogColors.momentoPinkDark],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                  ),
+                  child: CircleAvatar(
+                    radius: 22,
+                    backgroundColor: SetlogColors.authSurfaceRaised,
+                    child: Text(
+                      snap.senderUsername.isNotEmpty ? snap.senderUsername[0].toUpperCase() : '?',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: SetlogColors.authInk),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (isNew)
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: const BoxDecoration(
-                            color: CupertinoColors.activeBlue,
-                            shape: BoxShape.circle,
-                          ),
-                        )
-                      else
-                        Icon(
-                          isMe 
-                            ? CupertinoIcons.arrow_up_right 
-                            : (snap.isVideo ? CupertinoIcons.video_camera : CupertinoIcons.photo),
-                          size: 14,
-                          color: SetlogColors.collectionsHomeTextSecondary,
-                        ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          isNew 
-                              ? (unreadCount > 1 ? '$unreadCount New Momentos' : 'New Momento')
-                              : (isMe ? (snap.isVideo ? 'You sent a video' : 'You sent a photo') : 'Opened'),
-                          style: TextStyle(
-                            color: isNew ? CupertinoColors.activeBlue : SetlogColors.collectionsHomeTextSecondary,
-                            fontSize: 14,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        displayName,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: (isNew && !isMe) ? FontWeight.w700 : FontWeight.w500,
+                          color: SetlogColors.collectionsHomeTextPrimary,
+                          letterSpacing: -0.3,
                         ),
                       ),
-                      if (snap.groupName != null) ...[
-                        const SizedBox(width: 4),
-                        const Text('·', style: TextStyle(color: SetlogColors.collectionsHomeTextSecondary)),
-                        const SizedBox(width: 4),
-                        Text(
-                          snap.groupName!,
-                          style: const TextStyle(fontSize: 14, color: SetlogColors.collectionsHomeTextSecondary),
-                        ),
-                      ]
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Icon(
+                            isMe 
+                              ? CupertinoIcons.arrow_up_right 
+                              : (snap.isVideo ? CupertinoIcons.video_camera_solid : CupertinoIcons.photo_fill),
+                            size: 14,
+                            color: isNew ? SetlogColors.momentoPink : SetlogColors.collectionsHomeTextSecondary,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              isNew 
+                                  ? (unreadCount > 1 ? '$unreadCount New Momentos' : 'New Momento')
+                                  : (isMe ? (snap.isVideo ? 'You sent a video' : 'You sent a photo') : 'Opened'),
+                              style: TextStyle(
+                                color: isNew ? SetlogColors.momentoPink : SetlogColors.collectionsHomeTextSecondary,
+                                fontSize: 13.5,
+                                fontWeight: isNew ? FontWeight.w600 : FontWeight.w400,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
+                ),
+                if (!isMe) ...[
+                  const SizedBox(width: 12),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: const Icon(CupertinoIcons.camera, color: SetlogColors.collectionsHomeTextSecondary, size: 24),
+                    onPressed: () => context.push('/main/camera'),
+                  ),
                 ],
-              ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Text(
-              timeago.format(snap.timestamp, locale: 'en_short'),
-              style: TextStyle(
-                color: (isNew && !isMe) ? CupertinoColors.activeBlue : SetlogColors.collectionsHomeTextSecondary, 
-                fontSize: 14,
-              ),
-            ),
-            if (!isMe) ...[
-              const SizedBox(width: 12),
-              CupertinoButton(
-                padding: EdgeInsets.zero,
-                minSize: 0,
-                child: const Icon(CupertinoIcons.camera, color: SetlogColors.collectionsHomeTextSecondary, size: 24),
-                onPressed: () => context.push('/main/camera'),
-              ),
-            ]
-          ],
+          ),
         ),
       ),
     ).animate(delay: (index * 30).ms).fadeIn(duration: 300.ms);

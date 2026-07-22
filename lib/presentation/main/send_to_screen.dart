@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:momento/data/friends_repository.dart';
 import 'package:momento/data/snap_repository.dart';
 import 'package:momento/data/cloudinary_service.dart';
+import 'package:momento/data/local_cache.dart';
 import 'package:momento/theme/colors.dart';
 import 'dart:io';
 
@@ -41,6 +42,15 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
   }
 
   Future<void> _loadData() async {
+    // 1. Instant Cache-First Load
+    final cachedFriends = await LocalCache.instance.getCachedFriends();
+    if (cachedFriends.isNotEmpty && mounted) {
+      setState(() {
+        _friends = cachedFriends;
+        _isLoading = false;
+      });
+    }
+
     try {
       final friends = await FriendsRepository.instance.getMutualFriends();
       final groups = await FriendsRepository.instance.getMyGroups();
@@ -52,7 +62,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && _friends.isEmpty) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
       }

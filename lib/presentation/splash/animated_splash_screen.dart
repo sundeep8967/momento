@@ -45,12 +45,15 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // Apple style pure black splash
+      backgroundColor: SetlogColors.collectionsHomeBackground, // Momento pink canvas
       body: Center(
-        child: Image.asset(
-          'assets/app_icon.png',
-          width: 120,
-          height: 120,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(26.4), // 22% of 120 = iOS squircle ratio
+          child: Image.asset(
+            'assets/app_icon.png',
+            width: 120,
+            height: 120,
+          ),
         )
         .animate()
         .fadeIn(duration: 800.ms, curve: Curves.easeOut)

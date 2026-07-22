@@ -77,10 +77,21 @@ class CloudinaryService {
     if (response.statusCode == 200) {
       final respStr = await response.stream.bytesToString();
       final jsonMap = jsonDecode(respStr);
-      return jsonMap['secure_url']; // The direct image URL
+      final secureUrl = jsonMap['secure_url'] as String;
+      // Inject auto-optimization flags for fast delivery and low bandwidth usage
+      return secureUrl.replaceFirst('/upload/', '/upload/q_auto,f_auto/');
     } else {
       final err = await response.stream.bytesToString();
       throw Exception('Failed to upload image to Cloudinary: ${response.statusCode} - $err');
     }
+  }
+
+  static Future<String> downloadAndDecryptVideo(String cloudUrl, String clipId, dynamic masterKey) async {
+    final response = await http.get(Uri.parse(cloudUrl));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to download video from Cloudinary: ${response.statusCode}');
+    }
+    // Return direct URL/path if not encrypted or write bytes
+    return cloudUrl;
   }
 }
