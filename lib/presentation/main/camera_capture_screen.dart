@@ -287,20 +287,63 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   onPressed: _discardClip,
                 ),
               ),
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
+              Positioned(
+                top: 120,
+                left: 0,
+                right: 0,
+                child: Container(
+                  color: Colors.black.withOpacity(0.65),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: TextField(
                     controller: _captionController,
-                    style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                    ),
                     textAlign: TextAlign.center,
                     decoration: const InputDecoration(
                       hintText: 'Add a caption...',
-                      hintStyle: TextStyle(color: Colors.white54),
+                      hintStyle: TextStyle(color: Colors.white60, fontSize: 18),
                       border: InputBorder.none,
+                      isDense: true,
                     ),
                     autofocus: true,
                     textInputAction: TextInputAction.done,
+                  ),
+                ),
+              ),
+              // Emoji Sticker Selector Row
+              Positioned(
+                bottom: 90,
+                left: 16,
+                right: 16,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: ['🔥', '❤️', '😂', '😍', '✨', '🎉', '⚡', '💯', '👑', '🥳', '😎']
+                        .map(
+                          (emoji) => GestureDetector(
+                            onTap: () {
+                              _captionController.text = '${_captionController.text} $emoji'.trim();
+                              _captionController.selection = TextSelection.fromPosition(
+                                TextPosition(offset: _captionController.text.length),
+                              );
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 10),
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.5),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white24),
+                              ),
+                              child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                            ),
+                          ),
+                        )
+                        .toList(),
                   ),
                 ),
               ),

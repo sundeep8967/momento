@@ -64,3 +64,11 @@ flutter:
     - assets/google_logo.png
     - assets/app_icon.png
     - assets/service_account.json
+
+flutter_native_splash:
+  color: "#FDF4F8"
+  image: "assets/app_icon.png"
+  android_12:
+    image: "assets/app_icon.png"
+    icon_background_color: "#FDF4F8"
+    color: "#FDF4F8"

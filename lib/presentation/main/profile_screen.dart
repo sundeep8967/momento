@@ -209,6 +209,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ).animate().scaleXY(end: 1.05, duration: 2000.ms, curve: Curves.easeInOut).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
                     const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        await context.push('/main/avatar-customizer');
+                        _loadProfile();
+                      },
+                      icon: const Text('✨', style: TextStyle(fontSize: 18)),
+                      label: const Text(
+                        'Customize 3D Avatar',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: SetlogColors.momentoPink,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        elevation: 4,
+                      ),
+                    ).animate().fadeIn(delay: 150.ms).scale(),
+                    const SizedBox(height: 16),
                     const Text(
                       'YOUR USERNAME',
                       style: TextStyle(

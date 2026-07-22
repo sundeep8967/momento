@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:momento/data/snap_repository.dart';
@@ -204,30 +205,116 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
             ),
           ),
           
-          // Tap indicators for next (right side)
+          // Top Snapchat Segmented Progress Bar
           Positioned(
-            top: 150,
-            right: 0,
-            bottom: 100,
-            width: MediaQuery.of(context).size.width * 0.3,
-            child: GestureDetector(
-              onTap: _nextSnap,
-              behavior: HitTestBehavior.translucent,
+            top: 40,
+            left: 12,
+            right: 12,
+            child: Row(
+              children: List.generate(widget.snaps.length, (idx) {
+                return Expanded(
+                  child: Container(
+                    height: 3,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(
+                      color: idx == _currentIndex
+                          ? SetlogColors.momentoPink
+                          : (idx < _currentIndex ? Colors.white : Colors.white38),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                );
+              }),
             ),
           ),
 
-          // Play/Pause Overlay Indicator
-          if (_videoController != null && _videoController!.value.isInitialized && !_isPlaying)
-            Center(
+          // Screenshot Alert Banner Simulation
+          Positioned(
+            top: 96,
+            left: 20,
+            right: 20,
+            child: GestureDetector(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('⚠️ Screenshot alert sent to ${currentSnap.senderUsername}!'),
+                    backgroundColor: SetlogColors.snapViewerAccent,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
               child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.75),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: SetlogColors.snapViewerAccent.withOpacity(0.6)),
                 ),
-                child: const Icon(Icons.play_arrow, color: Colors.white, size: 48),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(CupertinoIcons.camera_viewfinder, color: SetlogColors.snapViewerAccent, size: 16),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Tap to simulate Screenshot Notification',
+                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
               ),
             ),
+          ),
+
+          // Bottom Quick Reply & Heart Reaction Bar
+          Positioned(
+            bottom: 30,
+            left: 16,
+            right: 16,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 46,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white30),
+                    ),
+                    child: const TextField(
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Send message...',
+                        hintStyle: TextStyle(color: Colors.white60, fontSize: 14),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('❤️ Reaction sent!'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 46,
+                    height: 46,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: SetlogColors.momentoPink,
+                    ),
+                    child: Icon(CupertinoIcons.heart_fill, color: Colors.white, size: 22),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
