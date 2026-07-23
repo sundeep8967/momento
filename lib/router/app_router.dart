@@ -13,6 +13,7 @@ import '../presentation/main/own_log_viewer_screen.dart';
 import '../presentation/main/friends_screen.dart';
 import '../presentation/main/profile_screen.dart';
 import '../presentation/main/avatar_customizer_screen.dart';
+import '../avatar_kit/avatar_kit_screen.dart';
 import '../presentation/groups/create_group_screen.dart';
 import '../presentation/main/snap_viewer_screen.dart';
 import '../data/snap_repository.dart';
@@ -113,6 +114,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: 'avatar-customizer',
           builder: (context, state) => const AvatarCustomizerScreen(),
+        ),
+        GoRoute(
+          path: 'avatar-kit',
+          builder: (context, state) => const AvatarKitScreen(),
         ),
       ],
     ),

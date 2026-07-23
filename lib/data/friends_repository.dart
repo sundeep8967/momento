@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:convert';
 import 'push_notification_service.dart';
 import 'local_cache.dart';
+import '../avatar_kit/momento_avatar.dart';
 
 class UserProfile {
   final String uid;
@@ -13,6 +15,36 @@ class UserProfile {
   final int currentStreak;
   final int longestStreak;
   final String? lastLogDate;
+
+  MomentoAvatar? get avatar {
+    if (photoUrl.startsWith('avatar:')) {
+      try {
+        final jsonStr = photoUrl.substring(7);
+        final map = jsonDecode(jsonStr);
+        return MomentoAvatar(
+          seed: map['seed'] ?? uid,
+          skinColor: map['skinColor'] ?? 'ffdbb4',
+          top: map['top'] ?? 'shortHair',
+          hairColor: map['hairColor'] ?? '2c1b18',
+          hatColor: map['hatColor'] ?? '2c1b18',
+          accessories: map['accessories'] ?? 'none',
+          accessoriesColor: map['accessoriesColor'] ?? '262e33',
+          facialHair: map['facialHair'] ?? 'none',
+          facialHairColor: map['facialHairColor'] ?? '2c1b18',
+          clothes: map['clothes'] ?? 'blazerAndShirt',
+          clothesColor: map['clothesColor'] ?? 'ffffff',
+          clothesGraphic: map['clothesGraphic'] ?? 'none',
+          eyes: map['eyes'] ?? 'default',
+          eyebrows: map['eyebrows'] ?? 'default',
+          mouth: map['mouth'] ?? 'default',
+          bgScene: map['bgScene'] ?? 0,
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
 
   UserProfile({
     required this.uid,

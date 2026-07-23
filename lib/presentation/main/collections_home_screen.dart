@@ -7,6 +7,9 @@ import 'package:momento/theme/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../avatar_kit/avatar_widget.dart';
+import '../../avatar_kit/momento_avatar.dart';
+import 'dart:convert';
 
 class CollectionsHomeScreen extends ConsumerStatefulWidget {
   const CollectionsHomeScreen({super.key});
@@ -379,8 +382,30 @@ class ChatCardItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveAvatarUrl = avatarUrl ??
-        'https://api.dicebear.com/7.x/adventurer/png?seed=$avatarSeed&backgroundColor=f8f9fa';
+    MomentoAvatar displayAvatar = MomentoAvatar.fromSeed(avatarSeed);
+    if (avatarUrl != null && avatarUrl!.startsWith('avatar:')) {
+      try {
+        final map = jsonDecode(avatarUrl!.substring(7));
+        displayAvatar = MomentoAvatar(
+          seed: map['seed'] ?? avatarSeed,
+          skinColor: map['skinColor'] ?? 'ffdbb4',
+          top: map['top'] ?? 'shortHair',
+          hairColor: map['hairColor'] ?? '2c1b18',
+          hatColor: map['hatColor'] ?? '2c1b18',
+          accessories: map['accessories'] ?? 'none',
+          accessoriesColor: map['accessoriesColor'] ?? '262e33',
+          facialHair: map['facialHair'] ?? 'none',
+          facialHairColor: map['facialHairColor'] ?? '2c1b18',
+          clothes: map['clothes'] ?? 'blazerAndShirt',
+          clothesColor: map['clothesColor'] ?? 'ffffff',
+          clothesGraphic: map['clothesGraphic'] ?? 'none',
+          eyes: map['eyes'] ?? 'default',
+          eyebrows: map['eyebrows'] ?? 'default',
+          mouth: map['mouth'] ?? 'default',
+          bgScene: map['bgScene'] ?? 0,
+        );
+      } catch (_) {}
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
@@ -419,22 +444,9 @@ class ChatCardItem extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(isNew ? 15 : 18),
-              child: Image.network(
-                effectiveAvatarUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: SetlogColors.momentoPinkSurface,
-                  child: Center(
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                      style: const TextStyle(
-                        color: SetlogColors.momentoPink,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                      ),
-                    ),
-                  ),
-                ),
+              child: AvatarWidget(
+                avatar: displayAvatar,
+                size: 56,
               ),
             ),
           ),
@@ -552,5 +564,65 @@ class ChatCardItem extends StatelessWidget {
         ),
       );
     }
+  }
+}
+
+class Snapchat3DAvatarWidget extends StatelessWidget {
+  final String seed;
+  final String? avatarUrl;
+  final double size;
+
+  const Snapchat3DAvatarWidget({
+    super.key,
+    required this.seed,
+    this.avatarUrl,
+    this.size = 56,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (avatarUrl != null && avatarUrl!.startsWith('assets/')) {
+      return Image.asset(avatarUrl!, fit: BoxFit.cover);
+    }
+
+    if (avatarUrl != null && avatarUrl!.startsWith('http')) {
+      return Image.network(
+        avatarUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildOffline3DAvatar(),
+      );
+    }
+
+    return _buildOffline3DAvatar();
+  }
+
+  Widget _buildOffline3DAvatar() {
+    final hash = seed.hashCode.abs();
+    final avatarAssets = [
+      'assets/avatars/avatar_1.png',
+      'assets/avatars/avatar_2.png',
+      'assets/avatars/avatar_3.png',
+      'assets/avatars/avatar_4.png',
+      'assets/avatars/avatar_5.png',
+    ];
+    final selectedAsset = avatarAssets[hash % avatarAssets.length];
+
+    return Image.asset(
+      selectedAsset,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: SetlogColors.momentoPinkSurface,
+        child: Center(
+          child: Text(
+            seed.isNotEmpty ? seed[0].toUpperCase() : 'U',
+            style: const TextStyle(
+              color: SetlogColors.momentoPink,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -11,6 +11,8 @@ import '../../data/friends_repository.dart';
 import '../../data/cloudinary_service.dart';
 import '../../data/local_cache.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../../avatar_kit/avatar_widget.dart';
+import '../../avatar_kit/momento_avatar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -149,7 +151,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   children: [
@@ -159,31 +161,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          Container(
-                            width: 120,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              color: SetlogColors.authSurface,
-                              shape: BoxShape.circle,
-                              image: _photoUrl != null && _photoUrl!.isNotEmpty
-                                  ? DecorationImage(
-                                      image: NetworkImage(_photoUrl!),
-                                      fit: BoxFit.cover,
-                                    )
-                                  : null,
-                            ),
-                            child: _photoUrl == null || _photoUrl!.isEmpty
-                                ? Center(
-                                    child: Text(
-                                      _username != null && _username!.isNotEmpty ? _username![0].toUpperCase() : '?',
-                                      style: const TextStyle(
-                                        fontSize: 40,
-                                        fontWeight: FontWeight.w800,
-                                        color: SetlogColors.authInk,
-                                      ),
-                                    ),
-                                  )
-                                : null,
+                          AvatarWidget(
+                            avatar: MomentoAvatar.fromSeed(FirebaseAuth.instance.currentUser?.uid ?? ''),
+                            size: 120,
+                            showBorder: true,
                           ),
                           if (_isUploading)
                             const CircularProgressIndicator(color: SetlogColors.authTerminalAccent),
@@ -211,12 +192,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
                       onPressed: () async {
-                        await context.push('/main/avatar-customizer');
+                        await context.push('/main/avatar-kit');
                         _loadProfile();
                       },
-                      icon: const Text('✨', style: TextStyle(fontSize: 18)),
+                      icon: const Text('🎭', style: TextStyle(fontSize: 18)),
                       label: const Text(
-                        'Customize 3D Avatar',
+                        'My Avatar Kit',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -318,8 +299,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.1),
                     ),
-
-                    const Spacer(),
 
                     const SizedBox(height: 16),
                     SizedBox(
