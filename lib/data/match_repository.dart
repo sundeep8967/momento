@@ -70,26 +70,6 @@ class MatchRepository {
         }
       }
       
-      // FORCED MOCK USERS FOR TESTING UI (bypassing Firestore rules/latency)
-      for (int i = 0; i < 3; i++) {
-        // Space them exactly 120 degrees apart so they look beautifully spread out!
-        double angle = (i * 120) * (pi / 180); 
-        double distanceOffset = 0.04 + (i * 0.015); // Slight stagger in distance
-        
-        double latOffset = sin(angle) * distanceOffset;
-        double lngOffset = cos(angle) * distanceOffset;
-        
-        double mockLat = myLat + latOffset;
-        double mockLng = myLng + lngOffset;
-        double mockDist = Geolocator.distanceBetween(myLat, myLng, mockLat, mockLng);
-        searchers.add({
-          'uid': 'mock_user_${i+1}',
-          'distance': mockDist,
-          'lat': mockLat,
-          'lng': mockLng,
-        });
-      }
-      
       return searchers;
     });
   }
