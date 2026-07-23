@@ -10,6 +10,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../avatar_kit/avatar_widget.dart';
 import '../../avatar_kit/momento_avatar.dart';
 import 'dart:convert';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../../theme/colors.dart';
+import '../../theme/smoking_mode_provider.dart';
 
 class CollectionsHomeScreen extends ConsumerStatefulWidget {
   const CollectionsHomeScreen({super.key});
@@ -181,9 +184,9 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                       return GestureDetector(
                         onTap: () {
                           if (!isMe) {
-                            context.push('/main/viewer', extra: {'snaps': userSnaps, 'initialIndex': 0});
+                            context.push('/main/snap_viewer', extra: {'snaps': userSnaps, 'initialIndex': 0});
                           } else {
-                            context.push('/main/own_viewer', extra: {'snaps': userSnaps});
+                            context.push('/main/snap_viewer', extra: {'snaps': userSnaps, 'initialIndex': 0});
                           }
                         },
                         child: ChatCardItem(
@@ -249,11 +252,20 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                     ),
                     // Spacer for central camera
                     const SizedBox(width: 80),
-                    // Friends Tab (Now Tea Icon)
+                    // Friends Tab (Now Tea or Smoking Icon)
                     Expanded(
                       child: GestureDetector(
                         onTap: () => context.push('/main/tea'),
-                        child: const Icon(Icons.emoji_food_beverage_outlined, color: Color(0xFF8E8E93), size: 28),
+                        child: Consumer(
+                          builder: (context, ref, child) {
+                            final isSmokingMode = ref.watch(smokingModeProvider);
+                            return Icon(
+                              isSmokingMode ? Icons.smoking_rooms : Icons.emoji_food_beverage_outlined,
+                              color: const Color(0xFF8E8E93),
+                              size: 28,
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],

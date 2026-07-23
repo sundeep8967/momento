@@ -11,14 +11,17 @@ import '../../data/friends_repository.dart';
 import '../../avatar_kit/momento_avatar.dart';
 import '../../avatar_kit/avatar_widget.dart';
 
-class TeaScreen extends StatefulWidget {
+import '../../theme/smoking_mode_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class TeaScreen extends ConsumerStatefulWidget {
   const TeaScreen({super.key});
 
   @override
-  State<TeaScreen> createState() => _TeaScreenState();
+  ConsumerState<TeaScreen> createState() => _TeaScreenState();
 }
 
-class _TeaScreenState extends State<TeaScreen> {
+class _TeaScreenState extends ConsumerState<TeaScreen> {
   final MatchRepository _matchRepo = MatchRepository();
   bool _isSearching = false;
   String? _matchedUserId;
@@ -92,6 +95,8 @@ class _TeaScreenState extends State<TeaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isSmokingMode = ref.watch(smokingModeProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
@@ -102,9 +107,9 @@ class _TeaScreenState extends State<TeaScreen> {
           icon: const Icon(CupertinoIcons.left_chevron, color: Colors.black87),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
-          'Tea Room',
-          style: TextStyle(
+        title: Text(
+          isSmokingMode ? 'Smoking Area' : 'Tea Room',
+          style: const TextStyle(
             color: Colors.black87,
             fontWeight: FontWeight.w800,
             fontSize: 22,
@@ -122,6 +127,7 @@ class _TeaScreenState extends State<TeaScreen> {
   }
 
   Widget _buildSearchState() {
+    final isSmokingMode = ref.watch(smokingModeProvider);
     return Column(
       children: [
         Expanded(
@@ -135,7 +141,7 @@ class _TeaScreenState extends State<TeaScreen> {
                 _buildRing(100),
               ],
               
-              // Center User (Tea Cup)
+              // Center User (Tea Cup or Smoking Icon)
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -149,8 +155,8 @@ class _TeaScreenState extends State<TeaScreen> {
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.emoji_food_beverage_outlined,
+                child: Icon(
+                  isSmokingMode ? Icons.smoking_rooms : Icons.emoji_food_beverage_outlined,
                   size: 50,
                   color: SetlogColors.momentoPink,
                 ),
@@ -185,7 +191,9 @@ class _TeaScreenState extends State<TeaScreen> {
           child: Column(
             children: [
               Text(
-                _isSearching ? 'Finding chaiars...' : 'Spill the Tea',
+                _isSearching 
+                    ? (isSmokingMode ? 'Finding smokers...' : 'Finding chaiars...') 
+                    : (isSmokingMode ? 'Take a Smoke Break' : 'Spill the Tea'),
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
@@ -198,8 +206,8 @@ class _TeaScreenState extends State<TeaScreen> {
               
               Text(
                 _isSearching 
-                    ? 'Looking for nearby chai lovers...' 
-                    : 'Connect with chai lovers...',
+                    ? (isSmokingMode ? 'Looking for nearby smokers...' : 'Looking for nearby chai lovers...') 
+                    : (isSmokingMode ? 'Connect with smokers...' : 'Connect with chai lovers...'),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,

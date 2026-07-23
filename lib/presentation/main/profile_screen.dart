@@ -13,15 +13,17 @@ import '../../data/local_cache.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../avatar_kit/avatar_widget.dart';
 import '../../avatar_kit/momento_avatar.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../theme/smoking_mode_provider.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _username;
   String? _photoUrl;
   DateTime? _createdAt;
@@ -418,6 +420,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             iconColor: Colors.blueAccent,
                             title: 'Find Friends',
                             onTap: () => context.push('/main/friends'),
+                          ),
+                          Divider(height: 1, indent: 60, color: Colors.grey.withOpacity(0.15)),
+                          // Smoking Mode Toggle
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.smoking_rooms, color: Colors.grey, size: 22),
+                                ),
+                                const SizedBox(width: 14),
+                                const Expanded(
+                                  child: Text(
+                                    'Ignore chai, smoking mode only',
+                                    style: TextStyle(
+                                      color: Colors.black87,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                                CupertinoSwitch(
+                                  value: ref.watch(smokingModeProvider),
+                                  activeColor: SetlogColors.momentoPink,
+                                  onChanged: (val) {
+                                    ref.read(smokingModeProvider.notifier).toggle(val);
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
                           Divider(height: 1, indent: 60, color: Colors.grey.withOpacity(0.15)),
                           _buildProfileOptionRow(
