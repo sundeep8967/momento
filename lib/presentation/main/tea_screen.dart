@@ -67,7 +67,9 @@ class _TeaScreenState extends ConsumerState<TeaScreen> {
     try {
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
       setState(() => _myPosition = position);
-      await _matchRepo.joinMatchmaking(position.latitude, position.longitude);
+      
+      final isSmokingMode = ref.read(smokingModeProvider);
+      await _matchRepo.joinMatchmaking(position.latitude, position.longitude, isSmokingMode: isSmokingMode);
     } catch (e) {
       setState(() => _isSearching = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -86,11 +88,11 @@ class _TeaScreenState extends ConsumerState<TeaScreen> {
     _stopSearching();
     await _matchRepo.matchWithUser(uid);
     // Usually you'd fetch real profile, here we mock it if it's a mock user
-    UserProfile? profile = await FriendsRepository.instance.getUserProfile(uid);
-    setState(() {
-      _matchedUserId = uid;
-      _matchedUser = profile;
-    });
+    
+    // Push directly to chat screen
+    if (mounted) {
+      context.push('/chat/$uid');
+    }
   }
 
   @override
@@ -169,18 +171,27 @@ class _TeaScreenState extends ConsumerState<TeaScreen> {
               
               // Streaming Avatars on Radar
               if (_isSearching && _myPosition != null)
-                StreamBuilder<List<Map<String, dynamic>>>(
-                  stream: _matchRepo.streamActiveSearchers(_myPosition!.latitude, _myPosition!.longitude),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const SizedBox.shrink();
-                    final users = snapshot.data!;
-                    
-                    return Stack(
-                      children: users.map((user) {
-                        return _buildRadarAvatar(user);
-                      }).toList(),
+                StreamBuilder<List<String>>(
+                  stream: _matchRepo.streamUnreadMessages(),
+                  builder: (context, unreadSnapshot) {
+                    final unreadUids = unreadSnapshot.data ?? [];
+                    return StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: _matchRepo.streamActiveSearchers(_myPosition!.latitude, _myPosition!.longitude, isSmokingMode: isSmokingMode),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) return const SizedBox.shrink();
+                        final users = snapshot.data!;
+                        
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          fit: StackFit.expand,
+                          children: users.map((user) {
+                            final hasUnread = unreadUids.contains(user['uid']);
+                            return _buildRadarAvatar(user, hasUnread: hasUnread);
+                          }).toList(),
+                        );
+                      },
                     );
-                  },
+                  }
                 ),
             ],
           ),
@@ -266,66 +277,89 @@ class _TeaScreenState extends ConsumerState<TeaScreen> {
      .fadeOut(duration: 2.seconds);
   }
   
-  Widget _buildRadarAvatar(Map<String, dynamic> user) {
+  Widget _buildRadarAvatar(Map<String, dynamic> user, {bool hasUnread = false}) {
     final uid = user['uid'] as String;
     final distance = user['distance'] as double;
+    final lat = user['lat'] as double;
+    final lng = user['lng'] as double;
     
-    // Generate and cache a random angle for visual stability
-    if (!_userAngles.containsKey(uid)) {
-      _userAngles[uid] = math.Random().nextDouble() * 2 * math.pi;
-    }
-    final angle = _userAngles[uid]!;
+    // Very simplified relative positioning for visual demo
+    double dx = (lng - _myPosition!.longitude) * 50000;
+    double dy = (_myPosition!.latitude - lat) * 50000;
     
-    // Map distance (0 to 50000m) to radius (50 to 150 visual pixels)
-    // Closer distance = smaller radius (closer to center)
-    double normalizedDistance = (distance / 50000.0).clamp(0.0, 1.0);
-    double radius = 70 + (normalizedDistance * 100); 
+    // Generate a visual angle based on coordinates
+    double angle = math.atan2(dy, dx);
+    
+    // Normalize distance (0.0 to 1.0) for 50km max
+    double normalizedDist = (distance / 50000).clamp(0.0, 1.0);
+    
+    // Map to a visual magnitude between 0.35 and 1.0 so they don't cover the center cup!
+    double magnitude = 0.35 + (normalizedDist * 0.65);
+    
+    // Calculate alignment (X and Y between -1.0 and 1.0)
+    double alignX = math.cos(angle) * magnitude;
+    double alignY = -math.sin(angle) * magnitude; // Negative because Y goes down in UI
 
-    // Convert polar coordinates to cartesian for Positioned
-    double dx = radius * math.cos(angle);
-    double dy = radius * math.sin(angle);
-    
-    return Positioned(
-      // We align to the center, so we shift by half the avatar size (25)
-      left: (MediaQuery.of(context).size.width / 2) + dx - 25,
-      top: (MediaQuery.of(context).size.height / 2 - 150) + dy - 25, // Offset for stack position
-      child: GestureDetector(
-        onTap: () => _onUserTapped(uid),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    return Positioned.fill(
+      child: Align(
+        alignment: Alignment(alignX, alignY),
+        child: GestureDetector(
+          onTap: () => _onUserTapped(uid),
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: SetlogColors.momentoPink.withOpacity(0.3),
-                    blurRadius: 8,
-                  )
-                ]
-              ),
-              child: AvatarWidget(
-                avatar: MomentoAvatar.fromSeed(uid),
-                size: 50,
-                showBorder: false,
-              ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: SetlogColors.momentoPink.withOpacity(0.3),
+                        blurRadius: 8,
+                      )
+                    ]
+                  ),
+                  child: AvatarWidget(
+                    avatar: MomentoAvatar.fromSeed(uid),
+                    size: 50,
+                    showBorder: false,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${(distance/1000).toStringAsFixed(1)}km',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(10),
+            if (hasUnread)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.activeBlue,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
               ),
-              child: Text(
-                '${(distance/1000).toStringAsFixed(1)}km',
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-              ),
-            ),
           ],
         ),
       ).animate().scale(curve: Curves.elasticOut, duration: 600.ms),
+      ),
     );
   }
 

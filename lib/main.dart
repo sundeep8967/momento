@@ -11,6 +11,7 @@ import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'data/models/isar_models.dart';
 import 'data/video_proxy_server.dart';
+import 'data/push_notification_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -37,6 +38,9 @@ void main() async {
   
   await VideoProxyServer.instance.start();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  
+  // Initialize Push Notifications
+  await PushNotificationService.instance.initialize();
   
   // Setup App Links
   final appLinks = AppLinks();

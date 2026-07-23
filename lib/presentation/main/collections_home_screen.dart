@@ -505,6 +505,7 @@ class ChatCardItem extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
+                          children: [
                             const Text('🔥', style: TextStyle(fontSize: 12))
                                 .animate(onPlay: (controller) => controller.repeat(reverse: true))
                                 .scaleXY(begin: 1.0, end: 1.2, duration: 1.seconds, curve: Curves.easeInOut),
@@ -528,31 +529,27 @@ class ChatCardItem extends StatelessWidget {
                   children: [
                     _buildStatusIndicator(),
                     const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        status,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: statusColor,
-                          fontWeight: isNew ? FontWeight.w900 : FontWeight.w600,
-                          letterSpacing: isNew ? 0.3 : 0,
-                        ),
+                    Text(
+                      status,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: statusColor,
+                        fontWeight: isNew ? FontWeight.w800 : FontWeight.w600,
+                        letterSpacing: isNew ? 0.2 : 0,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '· $time',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF999999),
                       ),
                     ),
                   ],
                 ),
               ],
-            ),
-          ),
-
-          // Timestamp
-          Text(
-            time,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF999999),
             ),
           ),
         ],
@@ -563,11 +560,11 @@ class ChatCardItem extends StatelessWidget {
   Widget _buildStatusIndicator() {
     if (isNew) {
       return Container(
-        width: 12,
-        height: 12,
+        width: 14,
+        height: 14,
         decoration: BoxDecoration(
-          color: SetlogColors.momentoPink,
-          borderRadius: BorderRadius.circular(3),
+          color: statusColor, // Use the passed status color (e.g., purple/red)
+          borderRadius: BorderRadius.circular(4),
         ),
       );
     } else if (isDelivered) {
@@ -653,6 +650,7 @@ class Snapchat3DAvatarWidget extends StatelessWidget {
         ),
       ),
     );
+  }
 }
 
 class BouncingButton extends StatefulWidget {

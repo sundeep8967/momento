@@ -10,19 +10,20 @@ class MatchRepository {
   String? get currentUserId => _auth.currentUser?.uid;
 
   /// Joins the matchmaking pool with the given location
-  Future<void> joinMatchmaking(double lat, double lng) async {
+  Future<void> joinMatchmaking(double lat, double lng, {bool isSmokingMode = false}) async {
     if (currentUserId == null) return;
     
     await _firestore.collection('chai_matches').doc(currentUserId).set({
       'uid': currentUserId,
       'lat': lat,
       'lng': lng,
+      'isSmokingMode': isSmokingMode,
       'timestamp': FieldValue.serverTimestamp(),
       'matchedWith': null,
     });
     
     // For testing: Inject some fake users nearby so the radar isn't empty!
-    _injectMockUsers(lat, lng);
+    _injectMockUsers(lat, lng, isSmokingMode: isSmokingMode);
   }
 
   /// Leaves the matchmaking pool
@@ -33,7 +34,7 @@ class MatchRepository {
   }
 
   /// Streams active searchers within a given radius
-  Stream<List<Map<String, dynamic>>> streamActiveSearchers(double myLat, double myLng) {
+  Stream<List<Map<String, dynamic>>> streamActiveSearchers(double myLat, double myLng, {bool isSmokingMode = false}) {
     final tenMinsAgo = DateTime.now().subtract(const Duration(minutes: 10));
     
     return _firestore
@@ -48,6 +49,10 @@ class MatchRepository {
         
         final data = doc.data();
         if (data['matchedWith'] != null) continue; // Skip already matched people
+        
+        // Filter by mode
+        bool userIsSmokingMode = data['isSmokingMode'] ?? false;
+        if (userIsSmokingMode != isSmokingMode) continue;
         
         double lat = data['lat'] ?? 0.0;
         double lng = data['lng'] ?? 0.0;
@@ -64,7 +69,43 @@ class MatchRepository {
           });
         }
       }
+      
+      // FORCED MOCK USERS FOR TESTING UI (bypassing Firestore rules/latency)
+      for (int i = 0; i < 3; i++) {
+        // Space them exactly 120 degrees apart so they look beautifully spread out!
+        double angle = (i * 120) * (pi / 180); 
+        double distanceOffset = 0.04 + (i * 0.015); // Slight stagger in distance
+        
+        double latOffset = sin(angle) * distanceOffset;
+        double lngOffset = cos(angle) * distanceOffset;
+        
+        double mockLat = myLat + latOffset;
+        double mockLng = myLng + lngOffset;
+        double mockDist = Geolocator.distanceBetween(myLat, myLng, mockLat, mockLng);
+        searchers.add({
+          'uid': 'mock_user_${i+1}',
+          'distance': mockDist,
+          'lat': mockLat,
+          'lng': mockLng,
+        });
+      }
+      
       return searchers;
+    });
+  }
+
+  /// Streams the list of UIDs that have sent us a message
+  Stream<List<String>> streamUnreadMessages() {
+    if (currentUserId == null) return Stream.value([]);
+    return _firestore
+        .collection('chai_matches')
+        .doc(currentUserId)
+        .snapshots()
+        .map((doc) {
+      if (!doc.exists) return [];
+      final data = doc.data()!;
+      if (data['unreadMessagesFrom'] == null) return [];
+      return List<String>.from(data['unreadMessagesFrom']);
     });
   }
 
@@ -84,7 +125,7 @@ class MatchRepository {
     } catch (_) {}
   }
 
-  void _injectMockUsers(double baseLat, double baseLng) async {
+  void _injectMockUsers(double baseLat, double baseLng, {bool isSmokingMode = false}) async {
     // Inject 3 fake users at random nearby distances (1km to 15km)
     final random = Random();
     
@@ -98,6 +139,7 @@ class MatchRepository {
         'uid': 'mock_user_$i',
         'lat': baseLat + latOffset,
         'lng': baseLng + lngOffset,
+        'isSmokingMode': isSmokingMode,
         'timestamp': FieldValue.serverTimestamp(),
         'matchedWith': null,
       });
