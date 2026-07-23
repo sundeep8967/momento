@@ -27,6 +27,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   bool _isCameraInitialized = false;
   bool _isSaving = false;
   bool _isLandscape = false; 
+  bool _isFrontCamera = true;
+  bool _isFlashOn = false;
+  bool _isDualCamera = false;
+  Offset _pipOffset = const Offset(20, 100);
 
   XFile? _recordedFile;
   bool _isReviewing = false;
@@ -178,6 +182,53 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     setState(() => _isLandscape = !_isLandscape);
   }
 
+  Future<void> _switchCamera() async {
+    HapticFeedback.mediumImpact();
+    try {
+      final cameras = await availableCameras();
+      if (cameras.length < 2) return;
+      
+      _isFrontCamera = !_isFrontCamera;
+      final targetLens = _isFrontCamera ? CameraLensDirection.front : CameraLensDirection.back;
+      
+      final selectedCamera = cameras.firstWhere(
+        (c) => c.lensDirection == targetLens,
+        orElse: () => cameras.first,
+      );
+
+      await _cameraController?.dispose();
+      _cameraController = CameraController(
+        selectedCamera,
+        ResolutionPreset.medium,
+        enableAudio: true,
+      );
+      await _cameraController!.initialize();
+      if (_isFlashOn && !_isFrontCamera) {
+        await _cameraController!.setFlashMode(FlashMode.torch);
+      }
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('Switch camera error: $e');
+    }
+  }
+
+  Future<void> _toggleFlash() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+    HapticFeedback.mediumImpact();
+    try {
+      _isFlashOn = !_isFlashOn;
+      await _cameraController!.setFlashMode(_isFlashOn ? FlashMode.torch : FlashMode.off);
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('Flash toggle error: $e');
+    }
+  }
+
+  void _toggleDualCamera() {
+    HapticFeedback.mediumImpact();
+    setState(() => _isDualCamera = !_isDualCamera);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -211,8 +262,80 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             ),
           ),
 
+          // Dual Camera PIP Window Overlay (Draggable anywhere on screen)
+          if (_isDualCamera && _isCameraInitialized && !_isReviewing)
+            Positioned(
+              top: _pipOffset.dy,
+              left: _pipOffset.dx,
+              child: GestureDetector(
+                onPanUpdate: (details) {
+                  setState(() {
+                    _pipOffset += details.delta;
+                  });
+                },
+                onTap: _switchCamera,
+                child: Container(
+                  width: 110,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 16,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: FittedBox(
+                            fit: BoxFit.cover,
+                            child: SizedBox(
+                              width: _cameraController!.value.previewSize?.height ?? 1,
+                              height: _cameraController!.value.previewSize?.width ?? 1,
+                              child: CameraPreview(_cameraController!),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          color: SetlogColors.momentoPink.withOpacity(0.2),
+                        ),
+                        Positioned(
+                          bottom: 6,
+                          left: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black87,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              children: const [
+                                Icon(CupertinoIcons.switch_camera, color: Colors.white, size: 10),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Dual Cam',
+                                  style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
             if (!_isReviewing) ...[
-              // Top controls with frosted glass circular buttons
+              // Snapchat-style Top & Vertical Side Toolbar
               Positioned(
                 top: 0,
                 left: 20,
@@ -221,15 +344,37 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   child: Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Top-left Close Button
                         _buildFrostedCircularButton(
                           icon: CupertinoIcons.xmark,
                           onTap: () => context.pop(),
                         ),
                         const Spacer(),
-                        _buildFrostedCircularButton(
-                          icon: _isLandscape ? CupertinoIcons.device_phone_portrait : CupertinoIcons.device_phone_landscape,
-                          onTap: _flipOrientation,
+                        // Vertical Toolbar with Labels (Switch Camera, Flash, Dual Cam, Music)
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                             // 1. Switch Camera (Front/Back)
+                            _buildToolbarItem(
+                              icon: CupertinoIcons.arrow_2_circlepath,
+                              label: 'Switch Camera',
+                              onTap: _switchCamera,
+                            ),
+                            // 2. Flash
+                            _buildToolbarItem(
+                              icon: _isFlashOn ? CupertinoIcons.bolt_fill : CupertinoIcons.bolt_slash,
+                              label: 'Flash',
+                              onTap: _toggleFlash,
+                            ),
+                            // 3. Dual Camera Mode
+                            _buildToolbarItem(
+                              icon: CupertinoIcons.rectangle_on_rectangle_angled,
+                              label: 'Dual Cam',
+                              onTap: _toggleDualCamera,
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -305,50 +450,24 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               ).animate().fadeIn(delay: 800.ms, duration: 600.ms),
             ],
             if (_isReviewing && !_isSaving) ...[
-              // Top Bar Controls (Floating on photo, no dark background)
+              // Top Bar Controls (Only Close Button on top left)
               Positioned(
                 top: 0,
                 left: 20,
-                right: 20,
                 child: SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.only(top: 12),
-                    child: Row(
-                      children: [
-                        _buildFrostedCircularButton(
-                          icon: CupertinoIcons.xmark,
-                          onTap: _discardClip,
-                          buttonSize: 38,
-                          iconSize: 18,
-                        ),
-                        Expanded(
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.38),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
-                              ),
-                              child: const Text(
-                                'New Moment',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 38),
-                      ],
+                    child: _buildFrostedCircularButton(
+                      icon: CupertinoIcons.xmark,
+                      onTap: _discardClip,
+                      buttonSize: 38,
+                      iconSize: 18,
                     ),
                   ),
                 ),
               ),
 
-              // Bottom Area: Frosted Caption Pill + Circular Action Row
+              // Bottom Area: Frosted Caption Pill + Centered Pink Send Button
               Positioned(
                 bottom: 24,
                 left: 20,
@@ -397,58 +516,46 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                     ),
                     const SizedBox(height: 18),
 
-                    // Action Buttons Row (Gallery on left, Pink Send in middle)
-                    Row(
-                      children: [
-                        // Gallery / Photos Icon on far left
-                        _buildFrostedCircularButton(
-                          icon: CupertinoIcons.photo_on_rectangle,
-                          onTap: _pickFromGallery,
-                        ),
-                        const Spacer(),
-                        // Primary Pink Send Button with "Send" text in center
-                        GestureDetector(
-                          onTap: _saveClip,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
-                            decoration: BoxDecoration(
-                              color: SetlogColors.momentoPink,
-                              borderRadius: BorderRadius.circular(28),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: SetlogColors.momentoPink.withOpacity(0.5),
-                                  blurRadius: 16,
-                                  spreadRadius: 2,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Send',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                                SizedBox(width: 8),
-                                Icon(
-                                  CupertinoIcons.paperplane_fill,
+                    // Centered Primary Pink Send Button
+                    Center(
+                      child: GestureDetector(
+                        onTap: _saveClip,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: SetlogColors.momentoPink,
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: [
+                              BoxShadow(
+                                color: SetlogColors.momentoPink.withOpacity(0.5),
+                                blurRadius: 16,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Send',
+                                style: TextStyle(
                                   color: Colors.white,
-                                  size: 20,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.2,
                                 ),
-                              ],
-                            ),
+                              ),
+                              SizedBox(width: 8),
+                              Icon(
+                                CupertinoIcons.paperplane_fill,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ],
                           ),
                         ),
-                        const Spacer(),
-                        // Spacer balance to keep Send button perfectly centered
-                        const SizedBox(width: 48),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -517,30 +624,63 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   Widget _buildFrostedCircularButton({
     required IconData icon,
     required VoidCallback onTap,
-    double buttonSize = 48,
-    double iconSize = 22,
+    double buttonSize = 52,
+    double iconSize = 24,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: ClipOval(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
           child: Container(
             width: buttonSize,
             height: buttonSize,
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.38),
+              color: Colors.white.withOpacity(0.22),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.25), width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 8,
-                ),
-              ],
+              border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
             ),
             child: Icon(icon, color: Colors.white, size: iconSize),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolbarItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: Colors.white,
+              size: 26,
+              shadows: const [
+                Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                letterSpacing: -0.3,
+                shadows: [
+                  Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
