@@ -249,11 +249,11 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                     ),
                     // Spacer for central camera
                     const SizedBox(width: 80),
-                    // Friends Tab
+                    // Friends Tab (Now Tea Icon)
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => context.push('/friends'),
-                        child: const Icon(CupertinoIcons.person_2, color: Color(0xFF8E8E93), size: 28),
+                        onTap: () => context.push('/main/tea'),
+                        child: const Icon(Icons.emoji_food_beverage_outlined, color: Color(0xFF8E8E93), size: 28),
                       ),
                     ),
                   ],

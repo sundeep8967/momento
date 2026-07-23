@@ -13,6 +13,7 @@ import '../presentation/main/own_log_viewer_screen.dart';
 import '../presentation/main/friends_screen.dart';
 import '../presentation/main/profile_screen.dart';
 import '../presentation/main/avatar_customizer_screen.dart';
+import '../presentation/main/tea_screen.dart';
 import '../avatar_kit/avatar_kit_screen.dart';
 import '../presentation/groups/create_group_screen.dart';
 import '../presentation/main/snap_viewer_screen.dart';
@@ -110,6 +111,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: 'profile',
           builder: (context, state) => const ProfileScreen(),
+        ),
+        GoRoute(
+          path: 'tea',
+          builder: (context, state) => const TeaScreen(),
         ),
         GoRoute(
           path: 'avatar-customizer',
