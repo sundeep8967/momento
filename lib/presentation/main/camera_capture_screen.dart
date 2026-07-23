@@ -346,10 +346,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Top-left Close Button
-                        _buildFrostedCircularButton(
-                          icon: CupertinoIcons.xmark,
-                          onTap: () => context.pop(),
+                        // Top Close Button
+                        IconButton(
+                          icon: const Icon(CupertinoIcons.xmark, color: Colors.white, size: 32),
+                          onPressed: () => context.pop(),
+                          padding: EdgeInsets.zero,
+                          alignment: Alignment.centerLeft,
                         ),
                         const Spacer(),
                         // Vertical Toolbar with Labels (Switch Camera, Flash, Dual Cam, Music)
@@ -457,11 +459,11 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                 child: SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.only(top: 12),
-                    child: _buildFrostedCircularButton(
-                      icon: CupertinoIcons.xmark,
-                      onTap: _discardClip,
-                      buttonSize: 38,
-                      iconSize: 18,
+                    child: IconButton(
+                      icon: const Icon(CupertinoIcons.xmark, color: Colors.white, size: 32),
+                      onPressed: _discardClip,
+                      padding: EdgeInsets.zero,
+                      alignment: Alignment.centerLeft,
                     ),
                   ),
                 ),

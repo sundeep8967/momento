@@ -45,12 +45,27 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
 
   Future<void> _loadData() async {
     final myUid = FirebaseAuth.instance.currentUser?.uid;
+    UserProfile? myProfile;
+
+    if (myUid != null) {
+      final myDoc = await FirebaseFirestore.instance.collection('users').doc(myUid).get();
+      final myUsername = myDoc.exists ? (myDoc.data()?['username'] ?? 'Me') : 'Me';
+      myProfile = UserProfile(
+        uid: myUid,
+        username: myUsername,
+        displayName: 'Myself',
+        photoUrl: myDoc.data()?['photoUrl'] ?? '',
+      );
+    }
 
     // 1. Instant Cache-First Load
     final cachedFriends = await LocalCache.instance.getCachedFriends();
     if (cachedFriends.isNotEmpty && mounted) {
+      List<UserProfile> displayCached = List.from(cachedFriends);
+      if (myProfile != null) displayCached.insert(0, myProfile);
+      
       setState(() {
-        _friends = cachedFriends;
+        _friends = displayCached;
         _isLoading = false;
       });
     }
@@ -70,16 +85,10 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
             .toList();
       }
 
-      // Add "My Story (Me)" at the top so you can always send snaps to yourself
-      if (myUid != null && !displayFriends.any((f) => f.uid == myUid)) {
-        final myDoc = await FirebaseFirestore.instance.collection('users').doc(myUid).get();
-        final myUsername = myDoc.exists ? (myDoc.data()?['username'] ?? 'Me') : 'Me';
-        displayFriends.insert(0, UserProfile(
-          uid: myUid,
-          username: myUsername,
-          displayName: 'My Story (Me)',
-          photoUrl: myDoc.data()?['photoUrl'] ?? '',
-        ));
+      // Add "Myself" at the top so you can always send snaps to yourself
+      if (myProfile != null) {
+        displayFriends.removeWhere((f) => f.uid == myUid); // Ensure no duplicates
+        displayFriends.insert(0, myProfile);
       }
 
       if (mounted) {
