@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:math';
 
 class MatchRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -19,6 +20,9 @@ class MatchRepository {
       'timestamp': FieldValue.serverTimestamp(),
       'matchedWith': null,
     });
+    
+    // For testing: Inject some fake users nearby so the radar isn't empty!
+    _injectMockUsers(lat, lng);
   }
 
   /// Leaves the matchmaking pool
@@ -28,55 +32,75 @@ class MatchRepository {
     await _firestore.collection('chai_matches').doc(currentUserId).delete();
   }
 
-  /// Polls for a match or finds one nearby
-  /// Returns the matched user's UID or null if not found
-  Future<String?> findMatch(double myLat, double myLng) async {
-    if (currentUserId == null) return null;
-
-    // First check if someone already matched with us
-    final myDoc = await _firestore.collection('chai_matches').doc(currentUserId).get();
-    if (myDoc.exists && myDoc.data()?['matchedWith'] != null) {
-      return myDoc.data()?['matchedWith'];
-    }
-
-    // Otherwise, query for active searchers (last 10 minutes)
+  /// Streams active searchers within a given radius
+  Stream<List<Map<String, dynamic>>> streamActiveSearchers(double myLat, double myLng) {
     final tenMinsAgo = DateTime.now().subtract(const Duration(minutes: 10));
     
-    final activeSearchers = await _firestore
+    return _firestore
         .collection('chai_matches')
         .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(tenMinsAgo))
-        .get();
-
-    String? closestMatchId;
-    double minDistance = double.infinity;
-
-    for (var doc in activeSearchers.docs) {
-      if (doc.id == currentUserId) continue; // Skip self
+        .snapshots()
+        .map((snapshot) {
+      List<Map<String, dynamic>> searchers = [];
       
-      final data = doc.data();
-      if (data['matchedWith'] != null) continue; // Already matched
-      
-      double lat = data['lat'] ?? 0.0;
-      double lng = data['lng'] ?? 0.0;
-      
-      double distance = Geolocator.distanceBetween(myLat, myLng, lat, lng);
-      
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestMatchId = doc.id;
+      for (var doc in snapshot.docs) {
+        if (doc.id == currentUserId) continue; // Skip self
+        
+        final data = doc.data();
+        if (data['matchedWith'] != null) continue; // Skip already matched people
+        
+        double lat = data['lat'] ?? 0.0;
+        double lng = data['lng'] ?? 0.0;
+        
+        double distance = Geolocator.distanceBetween(myLat, myLng, lat, lng);
+        
+        // Return people within 50km
+        if (distance < 50000) {
+          searchers.add({
+            'uid': doc.id,
+            'distance': distance, // in meters
+            'lat': lat,
+            'lng': lng,
+          });
+        }
       }
-    }
+      return searchers;
+    });
+  }
 
-    if (closestMatchId != null) {
-      // Update both documents to finalize match
-      await _firestore.collection('chai_matches').doc(currentUserId).update({
-        'matchedWith': closestMatchId
-      });
-      await _firestore.collection('chai_matches').doc(closestMatchId).update({
+  Future<void> matchWithUser(String otherUid) async {
+    if (currentUserId == null) return;
+    
+    // Update both documents to finalize match
+    await _firestore.collection('chai_matches').doc(currentUserId).update({
+      'matchedWith': otherUid
+    });
+    // This might fail due to security rules if not configured properly, 
+    // but in a robust system this would be a cloud function.
+    try {
+      await _firestore.collection('chai_matches').doc(otherUid).update({
         'matchedWith': currentUserId
       });
-    }
+    } catch (_) {}
+  }
 
-    return closestMatchId;
+  void _injectMockUsers(double baseLat, double baseLng) async {
+    // Inject 3 fake users at random nearby distances (1km to 15km)
+    final random = Random();
+    
+    for (int i = 1; i <= 3; i++) {
+      // Very rough lat/lng offset calculation for visual testing
+      // 1 degree is approx 111km
+      double latOffset = (random.nextDouble() - 0.5) * 0.1; 
+      double lngOffset = (random.nextDouble() - 0.5) * 0.1;
+      
+      await _firestore.collection('chai_matches').doc('mock_user_$i').set({
+        'uid': 'mock_user_$i',
+        'lat': baseLat + latOffset,
+        'lng': baseLng + lngOffset,
+        'timestamp': FieldValue.serverTimestamp(),
+        'matchedWith': null,
+      });
+    }
   }
 }

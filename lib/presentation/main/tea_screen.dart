@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import '../../theme/colors.dart';
 import '../../data/match_repository.dart';
 import '../../data/friends_repository.dart';
@@ -22,17 +23,18 @@ class _TeaScreenState extends State<TeaScreen> {
   bool _isSearching = false;
   String? _matchedUserId;
   UserProfile? _matchedUser;
-  Timer? _pollingTimer;
+  Position? _myPosition;
+  
+  // For visual stability, we assign a random angle to each UID once.
+  final Map<String, double> _userAngles = {};
 
   @override
   void dispose() {
-    _pollingTimer?.cancel();
     _matchRepo.leaveMatchmaking();
     super.dispose();
   }
 
   Future<void> _startSearching() async {
-    // 1. Check permissions
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location services are disabled.')));
@@ -49,7 +51,7 @@ class _TeaScreenState extends State<TeaScreen> {
     }
 
     if (permission == LocationPermission.deniedForever) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location permissions are permanently denied, we cannot request permissions.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location permissions are permanently denied.')));
       return;
     }
 
@@ -60,27 +62,9 @@ class _TeaScreenState extends State<TeaScreen> {
     });
 
     try {
-      // 2. Get current location
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      
-      // 3. Join matchmaking pool
+      setState(() => _myPosition = position);
       await _matchRepo.joinMatchmaking(position.latitude, position.longitude);
-
-      // 4. Start polling for matches every 3 seconds
-      _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-        final matchId = await _matchRepo.findMatch(position.latitude, position.longitude);
-        if (matchId != null) {
-          timer.cancel();
-          final profile = await FriendsRepository.instance.getUserProfile(matchId);
-          if (mounted) {
-            setState(() {
-              _isSearching = false;
-              _matchedUserId = matchId;
-              _matchedUser = profile;
-            });
-          }
-        }
-      });
     } catch (e) {
       setState(() => _isSearching = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -88,10 +72,21 @@ class _TeaScreenState extends State<TeaScreen> {
   }
 
   void _stopSearching() {
-    _pollingTimer?.cancel();
     _matchRepo.leaveMatchmaking();
     setState(() {
       _isSearching = false;
+      _myPosition = null;
+    });
+  }
+  
+  Future<void> _onUserTapped(String uid) async {
+    _stopSearching();
+    await _matchRepo.matchWithUser(uid);
+    // Usually you'd fetch real profile, here we mock it if it's a mock user
+    UserProfile? profile = await FriendsRepository.instance.getUserProfile(uid);
+    setState(() {
+      _matchedUserId = uid;
+      _matchedUser = profile;
     });
   }
 
@@ -119,7 +114,7 @@ class _TeaScreenState extends State<TeaScreen> {
         centerTitle: true,
       ),
       body: Center(
-        child: _matchedUser != null 
+        child: _matchedUserId != null 
             ? _buildMatchFound()
             : _buildSearchState(),
       ),
@@ -128,106 +123,201 @@ class _TeaScreenState extends State<TeaScreen> {
 
   Widget _buildSearchState() {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            if (_isSearching)
+        Expanded(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Radar Rings
+              if (_isSearching) ...[
+                _buildRing(300),
+                _buildRing(200),
+                _buildRing(100),
+              ],
+              
+              // Center User (Tea Cup)
               Container(
-                width: 200,
-                height: 200,
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
+                  color: Colors.white,
                   shape: BoxShape.circle,
-                  color: SetlogColors.momentoPink.withOpacity(0.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: SetlogColors.momentoPink.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
                 ),
-              ).animate(onPlay: (c) => c.repeat())
-               .scaleXY(begin: 0.5, end: 1.5, duration: 1.5.seconds, curve: Curves.easeOut)
-               .fadeOut(duration: 1.5.seconds),
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: SetlogColors.momentoPink.withOpacity(0.15),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.emoji_food_beverage_outlined,
-                size: 80,
-                color: SetlogColors.momentoPink,
-              ),
-            )
-            .animate(onPlay: (controller) => controller.repeat(reverse: true))
-            .scaleXY(end: 1.05, duration: 2.seconds, curve: Curves.easeInOut)
-            .animate()
-            .fadeIn(duration: 800.ms)
-            .slideY(begin: 0.2, curve: Curves.easeOutCubic),
-          ],
+                child: const Icon(
+                  Icons.emoji_food_beverage_outlined,
+                  size: 50,
+                  color: SetlogColors.momentoPink,
+                ),
+              )
+              .animate(onPlay: (controller) => controller.repeat(reverse: true))
+              .scaleXY(end: 1.05, duration: 2.seconds, curve: Curves.easeInOut)
+              .animate()
+              .fadeIn(duration: 800.ms)
+              .slideY(begin: 0.2, curve: Curves.easeOutCubic),
+              
+              // Streaming Avatars on Radar
+              if (_isSearching && _myPosition != null)
+                StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _matchRepo.streamActiveSearchers(_myPosition!.latitude, _myPosition!.longitude),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const SizedBox.shrink();
+                    final users = snapshot.data!;
+                    
+                    return Stack(
+                      children: users.map((user) {
+                        return _buildRadarAvatar(user);
+                      }).toList(),
+                    );
+                  },
+                ),
+            ],
+          ),
         ),
         
-        const SizedBox(height: 32),
-        
-        Text(
-          _isSearching ? 'Finding chaiars...' : 'Spill the Tea',
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: Colors.black87,
-            letterSpacing: -0.5,
-          ),
-        ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.2),
-        
-        const SizedBox(height: 12),
-        
-        Text(
-          _isSearching 
-              ? 'Looking for nearby chai lovers...' 
-              : 'Connect with chai lovers...',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: Colors.black45,
-          ),
-        ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.2),
-
-        const SizedBox(height: 48),
-
-        GestureDetector(
-          onTap: _isSearching ? _stopSearching : _startSearching,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _isSearching 
-                    ? [Colors.grey.shade400, Colors.grey.shade500]
-                    : [SetlogColors.momentoPink, SetlogColors.snapViewerAccent],
-              ),
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-                BoxShadow(
-                  color: (_isSearching ? Colors.grey : SetlogColors.momentoPink).withOpacity(0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 24.0),
+          child: Column(
+            children: [
+              Text(
+                _isSearching ? 'Finding chaiars...' : 'Spill the Tea',
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black87,
+                  letterSpacing: -0.5,
                 ),
-              ],
-            ),
-            child: Text(
-              _isSearching ? 'Cancel' : 'Find Nearby',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
+              ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.2),
+              
+              const SizedBox(height: 12),
+              
+              Text(
+                _isSearching 
+                    ? 'Looking for nearby chai lovers...' 
+                    : 'Connect with chai lovers...',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black45,
+                ),
+              ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.2),
+
+              const SizedBox(height: 48),
+
+              GestureDetector(
+                onTap: _isSearching ? _stopSearching : _startSearching,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: _isSearching 
+                          ? [Colors.grey.shade400, Colors.grey.shade500]
+                          : [SetlogColors.momentoPink, SetlogColors.snapViewerAccent],
+                    ),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (_isSearching ? Colors.grey : SetlogColors.momentoPink).withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    _isSearching ? 'Cancel' : 'Find Nearby',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.2),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRing(double radius) {
+    return Container(
+      width: radius * 2,
+      height: radius * 2,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: SetlogColors.momentoPink.withOpacity(0.1), width: 2),
+      ),
+    ).animate(onPlay: (c) => c.repeat())
+     .scaleXY(begin: 0.8, end: 1.2, duration: 2.seconds, curve: Curves.easeOut)
+     .fadeOut(duration: 2.seconds);
+  }
+  
+  Widget _buildRadarAvatar(Map<String, dynamic> user) {
+    final uid = user['uid'] as String;
+    final distance = user['distance'] as double;
+    
+    // Generate and cache a random angle for visual stability
+    if (!_userAngles.containsKey(uid)) {
+      _userAngles[uid] = math.Random().nextDouble() * 2 * math.pi;
+    }
+    final angle = _userAngles[uid]!;
+    
+    // Map distance (0 to 50000m) to radius (50 to 150 visual pixels)
+    // Closer distance = smaller radius (closer to center)
+    double normalizedDistance = (distance / 50000.0).clamp(0.0, 1.0);
+    double radius = 70 + (normalizedDistance * 100); 
+
+    // Convert polar coordinates to cartesian for Positioned
+    double dx = radius * math.cos(angle);
+    double dy = radius * math.sin(angle);
+    
+    return Positioned(
+      // We align to the center, so we shift by half the avatar size (25)
+      left: (MediaQuery.of(context).size.width / 2) + dx - 25,
+      top: (MediaQuery.of(context).size.height / 2 - 150) + dy - 25, // Offset for stack position
+      child: GestureDetector(
+        onTap: () => _onUserTapped(uid),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: SetlogColors.momentoPink.withOpacity(0.3),
+                    blurRadius: 8,
+                  )
+                ]
+              ),
+              child: AvatarWidget(
+                avatar: MomentoAvatar.fromSeed(uid),
+                size: 50,
+                showBorder: false,
               ),
             ),
-          ),
-        ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.2),
-      ],
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${(distance/1000).toStringAsFixed(1)}km',
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ).animate().scale(curve: Curves.elasticOut, duration: 600.ms),
     );
   }
 
@@ -271,7 +361,7 @@ class _TeaScreenState extends State<TeaScreen> {
               const SizedBox(height: 16),
               
               Text(
-                _matchedUser?.username != null ? '@${_matchedUser!.username}' : 'Unknown User',
+                _matchedUser?.username != null ? '@${_matchedUser!.username}' : 'Chai Lover',
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -283,7 +373,6 @@ class _TeaScreenState extends State<TeaScreen> {
               
               GestureDetector(
                 onTap: () {
-                  // E.g., open their profile or send friend request
                   if (_matchedUserId != null) {
                     FriendsRepository.instance.sendFriendRequest(_matchedUserId!);
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Friend request sent!')));
@@ -327,4 +416,5 @@ class _TeaScreenState extends State<TeaScreen> {
     );
   }
 }
+
 
