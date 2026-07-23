@@ -138,211 +138,353 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: SetlogColors.collectionsHomeBackground,
+      backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: SetlogColors.collectionsHomeTextPrimary),
-        title: const Text(
-          'Profile',
-          style: TextStyle(color: SetlogColors.collectionsHomeTextPrimary, fontWeight: FontWeight.bold),
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(CupertinoIcons.left_chevron, color: Colors.black87),
+          onPressed: () => context.pop(),
         ),
+        title: const Text(
+          'My Profile',
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(CupertinoIcons.share, color: Colors.black87, size: 22),
+            onPressed: () {
+              if (_username != null) {
+                Share.share('Add me on Momento to see my private moments! Username: @$_username');
+              }
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: SetlogColors.momentoPink))
           : SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 child: Column(
                   children: [
-                    const SizedBox(height: 40),
-                    GestureDetector(
-                      onTap: _isUploading ? null : _pickAndUploadImage,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          AvatarWidget(
-                            avatar: MomentoAvatar.fromSeed(FirebaseAuth.instance.currentUser?.uid ?? ''),
-                            size: 120,
-                            showBorder: true,
+                    // 1. Snapchat Profile Header Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            SetlogColors.momentoPink.withOpacity(0.12),
+                            Colors.white,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(color: SetlogColors.momentoPinkBorder.withOpacity(0.4), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
                           ),
-                          if (_isUploading)
-                            const CircularProgressIndicator(color: SetlogColors.authTerminalAccent),
-                          if (!_isUploading)
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: SetlogColors.authInk,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: SetlogColors.collectionsHomeBackground, width: 3),
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
                         ],
                       ),
-                    ).animate().scaleXY(end: 1.05, duration: 2000.ms, curve: Curves.easeInOut).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        await context.push('/main/avatar-kit');
-                        _loadProfile();
-                      },
-                      icon: const Text('🎭', style: TextStyle(fontSize: 18)),
-                      label: const Text(
-                        'My Avatar Kit',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: SetlogColors.momentoPink,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        elevation: 4,
-                      ),
-                    ).animate().fadeIn(delay: 150.ms).scale(),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'YOUR USERNAME',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: SetlogColors.collectionsHomeTextSecondary,
-                        letterSpacing: 1.2,
-                      ),
-                    ).animate().fadeIn(delay: 100.ms),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: SetlogColors.collectionsHomeSurface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: SetlogColors.authStrokeSoft),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                      child: Column(
                         children: [
+                          // Avatar with Camera Edit Badge
+                          GestureDetector(
+                            onTap: _isUploading ? null : _pickAndUploadImage,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [SetlogColors.momentoPink, SetlogColors.snapViewerAccent],
+                                    ),
+                                  ),
+                                  child: Container(
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    padding: const EdgeInsets.all(3),
+                                    child: AvatarWidget(
+                                      avatar: MomentoAvatar.fromSeed(FirebaseAuth.instance.currentUser?.uid ?? ''),
+                                      size: 100,
+                                      showBorder: false,
+                                    ),
+                                  ),
+                                ),
+                                if (_isUploading)
+                                  const CircularProgressIndicator(color: SetlogColors.momentoPink),
+                                if (!_isUploading)
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(7),
+                                      decoration: BoxDecoration(
+                                        color: SetlogColors.momentoPink,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.white, width: 2.5),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: SetlogColors.momentoPink.withOpacity(0.4),
+                                            blurRadius: 8,
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Icon(
+                                        CupertinoIcons.camera_fill,
+                                        color: Colors.white,
+                                        size: 15,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
+                          const SizedBox(height: 14),
+
+                          // Username & Display
                           Text(
                             '@$_username',
                             style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w700,
-                              color: SetlogColors.collectionsHomeTextPrimary,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black87,
+                              letterSpacing: -0.4,
                             ),
-                          ),
-                          if (_currentStreak > 0) ...[
-                            const SizedBox(width: 8),
-                            const Icon(Icons.local_fire_department, color: SetlogColors.blueFlame, size: 24),
-                            const SizedBox(width: 2),
-                            Text(
-                              '$_currentStreak',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: SetlogColors.authTerminalAccent,
-                              ),
-                            ),
-                          ],
+                          ).animate().fadeIn(delay: 100.ms),
+                          const SizedBox(height: 10),
+
+                          // Badges Row (Streak + Member Since)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (_currentStreak > 0)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Colors.orange.withOpacity(0.3), width: 1),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.local_fire_department, color: Colors.orange, size: 18),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '$_currentStreak Streak',
+                                        style: const TextStyle(
+                                          color: Colors.orange,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (_currentStreak > 0) const SizedBox(width: 8),
+                              if (_createdAt != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: SetlogColors.momentoPink.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: SetlogColors.momentoPinkBorder, width: 1),
+                                  ),
+                                  child: Text(
+                                    'Joined ${DateFormat('MMM yyyy').format(_createdAt!)}',
+                                    style: const TextStyle(
+                                      color: SetlogColors.momentoPink,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1),
                         ],
                       ),
-                    ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1),
-                    
-                    if (_createdAt != null) ...[
-                      const SizedBox(height: 32),
-                      const Text(
-                        'MEMBER SINCE',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: SetlogColors.collectionsHomeTextSecondary,
-                          letterSpacing: 1.2,
-                        ),
-                      ).animate().fadeIn(delay: 150.ms),
-                      const SizedBox(height: 8),
-                      Text(
-                        DateFormat('MMMM d, yyyy').format(_createdAt!),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: SetlogColors.collectionsHomeTextPrimary,
-                        ),
-                      ).animate().fadeIn(delay: 250.ms).slideY(begin: 0.1),
-                    ],
-
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      child: CupertinoButton(
-                        color: SetlogColors.authInk,
-                        onPressed: () {
-                          if (_username != null) {
-                            Share.share('Add me on Momento to see my private video logs! My username is @$_username.');
-                          }
-                        },
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(CupertinoIcons.share, color: Colors.white, size: 20),
-                            SizedBox(width: 8),
-                            Text('Share Profile', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 17, color: Colors.white)),
-                          ],
-                        ),
-                      ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.1),
                     ),
+                    const SizedBox(height: 20),
 
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: CupertinoButton(
-                        onPressed: _signOut,
-                        color: CupertinoColors.systemGrey6,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(CupertinoIcons.square_arrow_right, color: CupertinoColors.black, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Sign Out',
-                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 17, color: CupertinoColors.black),
+                    // 2. Avatar Kit Customizer Banner
+                    GestureDetector(
+                      onTap: () async {
+                        await context.push('/main/avatar-kit');
+                        _loadProfile();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [SetlogColors.momentoPink, SetlogColors.snapViewerAccent],
+                          ),
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: [
+                            BoxShadow(
+                              color: SetlogColors.momentoPink.withOpacity(0.4),
+                              blurRadius: 14,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                      ).animate().fadeIn(delay: 300.ms),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: CupertinoButton(
-                        onPressed: _deleteAccount,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(CupertinoIcons.delete, color: CupertinoColors.destructiveRed, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Delete Account',
-                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 17, color: CupertinoColors.destructiveRed),
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Text('🎭', style: TextStyle(fontSize: 24)),
                             ),
+                            const SizedBox(width: 16),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Momento Avatar Kit',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 17,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'Customize outfits, accessories & cap',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(CupertinoIcons.right_chevron, color: Colors.white70, size: 20),
                           ],
                         ),
-                      ).animate().fadeIn(delay: 400.ms),
-                    ),
+                      ),
+                    ).animate().fadeIn(delay: 250.ms).slideY(begin: 0.1),
+                    const SizedBox(height: 24),
+
+                    // 3. Apple HIG Style Settings List Section
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: Colors.black.withOpacity(0.06)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          _buildProfileOptionRow(
+                            icon: CupertinoIcons.share,
+                            iconColor: SetlogColors.momentoPink,
+                            title: 'Share Profile Link',
+                            onTap: () {
+                              if (_username != null) {
+                                Share.share('Add me on Momento! Username: @$_username');
+                              }
+                            },
+                          ),
+                          Divider(height: 1, indent: 60, color: Colors.grey.withOpacity(0.15)),
+                          _buildProfileOptionRow(
+                            icon: CupertinoIcons.person_crop_circle_badge_plus,
+                            iconColor: Colors.blueAccent,
+                            title: 'Find Friends',
+                            onTap: () => context.push('/main/friends'),
+                          ),
+                          Divider(height: 1, indent: 60, color: Colors.grey.withOpacity(0.15)),
+                          _buildProfileOptionRow(
+                            icon: CupertinoIcons.square_arrow_right,
+                            iconColor: Colors.orange,
+                            title: 'Sign Out',
+                            onTap: _signOut,
+                          ),
+                        ],
+                      ),
+                    ).animate().fadeIn(delay: 300.ms),
+                    const SizedBox(height: 24),
+
+                    // Delete Account Button (Subtle Red Action)
+                    CupertinoButton(
+                      onPressed: _deleteAccount,
+                      padding: EdgeInsets.zero,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(CupertinoIcons.delete, color: CupertinoColors.destructiveRed, size: 16),
+                          SizedBox(width: 6),
+                          Text(
+                            'Delete Account',
+                            style: TextStyle(
+                              color: CupertinoColors.destructiveRed,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ).animate().fadeIn(delay: 350.ms),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildProfileOptionRow({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: iconColor.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: iconColor, size: 20),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.black87,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      trailing: const Icon(CupertinoIcons.right_chevron, color: Colors.black26, size: 16),
     );
   }
 }

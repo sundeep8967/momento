@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import '../../data/friends_repository.dart';
 import '../../theme/colors.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import '../../avatar_kit/avatar_widget.dart';
+import '../../avatar_kit/momento_avatar.dart';
 
 class FriendsScreen extends StatefulWidget {
   final String? initialSearch;
@@ -96,14 +99,11 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   Future<void> _sendRequest(String uid) async {
-    // Optimistic UI: assume success and update immediately
     setState(() => _searchResult = null);
     _searchController.clear();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Friend request sent!')),
     );
-    
-    // Perform in background
     try {
       await FriendsRepository.instance.sendFriendRequest(uid);
     } catch (e) {
@@ -128,34 +128,41 @@ class _FriendsScreenState extends State<FriendsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: SetlogColors.authCanvas,
+      backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
-        backgroundColor: SetlogColors.authCanvas,
+        backgroundColor: const Color(0xFFF7F8FA),
         elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(CupertinoIcons.left_chevron, color: Colors.black87),
+          onPressed: () => context.pop(),
+        ),
         title: const Text(
           'Squad',
           style: TextStyle(
-            color: SetlogColors.authInk,
+            color: Colors.black87,
             fontWeight: FontWeight.w800,
             fontSize: 22,
             letterSpacing: -0.5,
           ),
         ),
-        iconTheme: const IconThemeData(color: SetlogColors.authInk),
         actions: [
           IconButton(
-            icon: const Icon(Icons.group_add),
+            icon: const Icon(CupertinoIcons.person_3_fill, color: SetlogColors.momentoPink, size: 24),
             tooltip: 'Create Group',
             onPressed: () => context.push('/friends/create_group'),
           ),
+          const SizedBox(width: 8),
         ],
         bottom: TabBar(
           controller: _tabController,
-          labelColor: SetlogColors.authInk,
-          unselectedLabelColor: SetlogColors.authMuted,
-          indicatorColor: SetlogColors.authInk,
-          indicatorWeight: 2.5,
+          labelColor: SetlogColors.momentoPink,
+          unselectedLabelColor: Colors.black45,
+          indicatorColor: SetlogColors.momentoPink,
+          indicatorWeight: 3,
+          indicatorSize: TabBarIndicatorSize.label,
           labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          dividerColor: Colors.black.withOpacity(0.05),
           tabs: [
             const Tab(text: 'Search'),
             Tab(
@@ -166,19 +173,19 @@ class _FriendsScreenState extends State<FriendsScreen>
                   if (_pendingRequests.isNotEmpty) ...[
                     const SizedBox(width: 6),
                     Container(
-                      width: 18,
-                      height: 18,
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: const BoxDecoration(
-                        color: SetlogColors.authTerminalAccent,
+                        color: SetlogColors.snapViewerAccent,
                         shape: BoxShape.circle,
                       ),
                       child: Center(
                         child: Text(
                           '${_pendingRequests.length}',
                           style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: SetlogColors.authInk),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -211,21 +218,22 @@ class _FriendsScreenState extends State<FriendsScreen>
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  onSubmitted: (_) => _search(),
-                  style: const TextStyle(color: SetlogColors.authInk, fontSize: 16),
-                  decoration: InputDecoration(
-                    hintText: 'Search by @username',
-                    hintStyle: const TextStyle(color: SetlogColors.authMuted),
-                    prefixIcon: const Icon(Icons.search, color: SetlogColors.authMuted),
-                    filled: true,
-                    fillColor: SetlogColors.authSurfaceRaised,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    onSubmitted: (_) => _search(),
+                    style: const TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w500),
+                    decoration: const InputDecoration(
+                      hintText: 'Search by @username',
+                      hintStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w500),
+                      prefixIcon: Icon(CupertinoIcons.search, color: Colors.black38),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(vertical: 14),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
               ),
@@ -235,17 +243,23 @@ class _FriendsScreenState extends State<FriendsScreen>
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: SetlogColors.authInk,
+                    color: SetlogColors.momentoPink,
                     borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: SetlogColors.momentoPink.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: _isSearching
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
-                      : const Icon(Icons.arrow_forward, color: Colors.white, size: 20),
+                      : const Icon(CupertinoIcons.arrow_right, color: Colors.white, size: 20),
                 ),
               ),
             ],
@@ -260,20 +274,21 @@ class _FriendsScreenState extends State<FriendsScreen>
                     'Add me on Momento to see my private video logs! My username is @${_myProfile!.username}.',
                   );
                 },
-                icon: const Icon(Icons.share, color: SetlogColors.authTerminalAccent),
-                label: const Text('Share Invite Link', style: TextStyle(color: SetlogColors.authInk)),
+                icon: const Icon(CupertinoIcons.share, color: SetlogColors.momentoPink, size: 18),
+                label: const Text('Share Invite Link', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: const BorderSide(color: SetlogColors.authStrokeSoft),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  backgroundColor: Colors.white,
+                  side: BorderSide(color: Colors.black.withOpacity(0.08)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
                 ),
               ),
             ),
           const SizedBox(height: 24),
 
           if (_searchError != null)
-            Text(_searchError!,
-                style: const TextStyle(color: SetlogColors.authMuted, fontSize: 14)),
+            Text(_searchError!, style: const TextStyle(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.w500)),
 
           if (_searchResult != null) _buildUserCard(_searchResult!),
         ],
@@ -285,21 +300,28 @@ class _FriendsScreenState extends State<FriendsScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: SetlogColors.authSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: SetlogColors.authStrokeSoft),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.black.withOpacity(0.04)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            backgroundColor: SetlogColors.authTerminalAccent,
-            radius: 22,
-            child: Text(
-              user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : '?',
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: SetlogColors.authInk,
-                  fontSize: 18),
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.black.withOpacity(0.05), width: 1),
+            ),
+            child: AvatarWidget(
+              avatar: MomentoAvatar.fromSeed(user.uid),
+              size: 44,
+              showBorder: false,
             ),
           ),
           const SizedBox(width: 14),
@@ -313,36 +335,48 @@ class _FriendsScreenState extends State<FriendsScreen>
                         style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
-                            color: SetlogColors.authInk)),
+                            color: Colors.black87)),
                     _buildStreakBadge(user),
                   ],
                 ),
                 Text('@${user.username}',
-                    style: const TextStyle(fontSize: 13, color: SetlogColors.authMuted)),
+                    style: const TextStyle(fontSize: 13, color: Colors.black45, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
           ElevatedButton(
             onPressed: () => _sendRequest(user.uid),
             style: ElevatedButton.styleFrom(
+              backgroundColor: SetlogColors.momentoPink,
+              foregroundColor: Colors.white,
+              elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
             ),
             child: const Text('Add'),
           ),
         ],
       ),
-    );
+    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1);
   }
 
   Widget _buildRequestsTab() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: SetlogColors.momentoPink));
     }
     if (_pendingRequests.isEmpty) {
       return Center(
-        child: const Text('No pending requests', style: TextStyle(color: SetlogColors.authMuted))
-            .animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(CupertinoIcons.person_add, size: 56, color: Colors.black.withOpacity(0.1))
+                .animate().fadeIn(duration: 600.ms).scale(duration: 600.ms, curve: Curves.easeOutBack),
+            const SizedBox(height: 16),
+            const Text('No pending requests', style: TextStyle(color: Colors.black45, fontSize: 16, fontWeight: FontWeight.w500))
+                .animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
+          ],
+        ),
       );
     }
     return ListView.separated(
@@ -355,37 +389,52 @@ class _FriendsScreenState extends State<FriendsScreen>
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: SetlogColors.authSurface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: SetlogColors.authStrokeSoft),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.black.withOpacity(0.04)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              const CircleAvatar(
-                backgroundColor: SetlogColors.authButter,
-                radius: 22,
-                child: Icon(Icons.person, color: SetlogColors.authInk, size: 22),
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.black.withOpacity(0.05), width: 1),
+                ),
+                child: AvatarWidget(
+                  avatar: MomentoAvatar.fromSeed(requesterUid),
+                  size: 44,
+                  showBorder: false,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
                   _requesterUsernames[requesterUid] != null ? '@${_requesterUsernames[requesterUid]}' : requesterUid,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, color: SetlogColors.authInk),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Colors.black87),
                 ),
               ),
               TextButton(
                 onPressed: () => _declineRequest(requesterUid),
-                child: const Text('Decline',
-                    style: TextStyle(color: SetlogColors.authMuted)),
+                child: const Text('Decline', style: TextStyle(color: Colors.black45, fontWeight: FontWeight.w600)),
               ),
               const SizedBox(width: 4),
               ElevatedButton(
                 onPressed: () => _acceptRequest(requesterUid),
                 style: ElevatedButton.styleFrom(
+                  backgroundColor: SetlogColors.momentoPink,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 ),
-                child: const Text('Accept'),
+                child: const Text('Accept', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ],
           ),
@@ -396,14 +445,14 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Widget _buildFriendsTab() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: SetlogColors.momentoPink));
     }
     if (_friends.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.group_outlined, size: 56, color: SetlogColors.authStrokeSoft)
+            Icon(CupertinoIcons.person_2, size: 64, color: SetlogColors.momentoPink.withOpacity(0.5))
                 .animate(onPlay: (controller) => controller.repeat(reverse: true))
                 .scaleXY(end: 1.1, duration: 1500.ms, curve: Curves.easeInOut)
                 .animate()
@@ -414,16 +463,23 @@ class _FriendsScreenState extends State<FriendsScreen>
                 style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: SetlogColors.authInk))
+                    color: Colors.black87))
                 .animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
             const SizedBox(height: 8),
             const Text('Search for friends by username',
-                style: TextStyle(color: SetlogColors.authMuted))
+                style: TextStyle(color: Colors.black45, fontWeight: FontWeight.w500))
                 .animate().fadeIn(delay: 300.ms),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => _tabController.animateTo(0),
-              child: const Text('Search'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: SetlogColors.momentoPink,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+              child: const Text('Search', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
             ).animate().fadeIn(delay: 400.ms).scale(),
           ],
         ),
@@ -438,21 +494,28 @@ class _FriendsScreenState extends State<FriendsScreen>
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: SetlogColors.authSurface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: SetlogColors.authStrokeSoft),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.black.withOpacity(0.04)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                backgroundColor: SetlogColors.accountGreen,
-                radius: 22,
-                child: Text(
-                  f.displayName.isNotEmpty ? f.displayName[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: SetlogColors.authInk,
-                      fontSize: 18),
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.black.withOpacity(0.05), width: 1),
+                ),
+                child: AvatarWidget(
+                  avatar: MomentoAvatar.fromSeed(f.uid),
+                  size: 44,
+                  showBorder: false,
                 ),
               ),
               const SizedBox(width: 14),
@@ -465,20 +528,19 @@ class _FriendsScreenState extends State<FriendsScreen>
                         Text(f.displayName,
                             style: const TextStyle(
                                 fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                                color: SetlogColors.authInk)),
+                                fontSize: 16,
+                                color: Colors.black87)),
                         _buildStreakBadge(f),
                       ],
                     ),
                     Text('@${f.username}',
                         style: const TextStyle(
-                            fontSize: 13, color: SetlogColors.authMuted)),
+                            fontSize: 13, color: Colors.black45, fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.person_remove_outlined,
-                    color: SetlogColors.authMuted),
+                icon: const Icon(CupertinoIcons.person_badge_minus, color: Colors.black26),
                 onPressed: () async {
                   await FriendsRepository.instance.declineOrRemove(f.uid);
                   await _loadFriendData();
@@ -505,14 +567,14 @@ class _FriendsScreenState extends State<FriendsScreen>
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(width: 6),
-        const Icon(Icons.local_fire_department, color: SetlogColors.blueFlame, size: 16),
+        const Icon(Icons.local_fire_department, color: Colors.orange, size: 16),
         const SizedBox(width: 2),
         Text(
           '${user.currentStreak}',
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w800,
-            color: SetlogColors.authTerminalAccent,
+            color: Colors.orange,
           ),
         ),
       ],
@@ -521,14 +583,14 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Widget _buildGroupsTab() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: SetlogColors.momentoPink));
     }
     if (_groups.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.groups_outlined, size: 56, color: SetlogColors.authStrokeSoft)
+            Icon(CupertinoIcons.person_3, size: 64, color: SetlogColors.snapViewerAccent.withOpacity(0.5))
                 .animate(onPlay: (controller) => controller.repeat(reverse: true))
                 .scaleXY(end: 1.1, duration: 1500.ms, curve: Curves.easeInOut)
                 .animate()
@@ -539,11 +601,11 @@ class _FriendsScreenState extends State<FriendsScreen>
                 style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: SetlogColors.authInk))
+                    color: Colors.black87))
                 .animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
             const SizedBox(height: 8),
             const Text('Create a group from the top right icon',
-                style: TextStyle(color: SetlogColors.authMuted))
+                style: TextStyle(color: Colors.black45, fontWeight: FontWeight.w500))
                 .animate().fadeIn(delay: 300.ms),
           ],
         ),
@@ -558,21 +620,38 @@ class _FriendsScreenState extends State<FriendsScreen>
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: SetlogColors.authSurface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: SetlogColors.authStrokeSoft),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.black.withOpacity(0.04)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                backgroundColor: SetlogColors.authTerminalAccent,
-                radius: 22,
-                child: Text(
-                  g.name.isNotEmpty ? g.name[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      fontSize: 18),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [SetlogColors.momentoPink, SetlogColors.snapViewerAccent],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    g.name.isNotEmpty ? g.name[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        fontSize: 18),
+                  ),
                 ),
               ),
               const SizedBox(width: 14),
@@ -583,14 +662,15 @@ class _FriendsScreenState extends State<FriendsScreen>
                     Text(g.name,
                         style: const TextStyle(
                             fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            color: SetlogColors.authInk)),
+                            fontSize: 16,
+                            color: Colors.black87)),
                     Text('${g.members.length} members',
                         style: const TextStyle(
-                            fontSize: 13, color: SetlogColors.authMuted)),
+                            fontSize: 13, color: Colors.black45, fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),
+              const Icon(CupertinoIcons.right_chevron, color: Colors.black26, size: 18),
             ],
           ),
         ).animate(delay: (i * 75).ms).fadeIn(duration: 400.ms).slideX(begin: 0.1, curve: Curves.easeOutQuad);
@@ -598,4 +678,5 @@ class _FriendsScreenState extends State<FriendsScreen>
     );
   }
 }
+
 
