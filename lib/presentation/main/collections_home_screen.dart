@@ -245,7 +245,7 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                   children: [
                     // Chat Tab
                     Expanded(
-                      child: GestureDetector(
+                      child: BouncingButton(
                         onTap: () {}, // Already here
                         child: const Icon(CupertinoIcons.chat_bubble_fill, color: SetlogColors.momentoPink, size: 28),
                       ),
@@ -254,7 +254,7 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                     const SizedBox(width: 80),
                     // Friends Tab (Now Tea or Smoking Icon)
                     Expanded(
-                      child: GestureDetector(
+                      child: BouncingButton(
                         onTap: () => context.push('/main/tea'),
                         child: Consumer(
                           builder: (context, ref, child) {
@@ -277,7 +277,7 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
           // Protruding Camera Button
           Positioned(
             bottom: 15,
-            child: GestureDetector(
+            child: BouncingButton(
               onTap: () => context.push('/main/camera'),
               child: Stack(
                 alignment: Alignment.center,
@@ -505,8 +505,9 @@ class ChatCardItem extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
-                          children: [
-                            const Text('🔥', style: TextStyle(fontSize: 12)),
+                            const Text('🔥', style: TextStyle(fontSize: 12))
+                                .animate(onPlay: (controller) => controller.repeat(reverse: true))
+                                .scaleXY(begin: 1.0, end: 1.2, duration: 1.seconds, curve: Curves.easeInOut),
                             const SizedBox(width: 2),
                             Text(
                               '$streak',
@@ -650,6 +651,56 @@ class Snapchat3DAvatarWidget extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+}
+
+class BouncingButton extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const BouncingButton({super.key, required this.child, required this.onTap});
+
+  @override
+  State<BouncingButton> createState() => _BouncingButtonState();
+}
+
+class _BouncingButtonState extends State<BouncingButton> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.85).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) {
+        _controller.reverse();
+        widget.onTap();
+      },
+      onTapCancel: () => _controller.reverse(),
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: widget.child,
       ),
     );
   }
