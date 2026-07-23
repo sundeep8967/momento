@@ -213,65 +213,88 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
   }
 
   Widget _buildFloatingBottomBar(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(left: 24, right: 24, bottom: 20),
-      height: 68,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(34),
-        border: Border.all(color: Colors.white, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+    return Padding(
+      padding: const EdgeInsets.only(left: 24, right: 24, bottom: 20),
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
+        children: [
+          // Background Pill
+          Container(
+            height: 68,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(34),
+              border: Border.all(color: Colors.white, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(34),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Row(
+                  children: [
+                    // Chat Tab
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {}, // Already here
+                        child: const Icon(CupertinoIcons.chat_bubble_fill, color: SetlogColors.momentoPink, size: 28),
+                      ),
+                    ),
+                    // Spacer for central camera
+                    const SizedBox(width: 80),
+                    // Friends Tab
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => context.push('/friends'),
+                        child: const Icon(CupertinoIcons.person_2, color: Color(0xFF8E8E93), size: 28),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          
+          // Protruding Camera Button
+          Positioned(
+            bottom: 15,
+            child: GestureDetector(
+              onTap: () => context.push('/main/camera'),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Transform.rotate(
+                    angle: 0.15, // Rotate right slightly
+                    child: Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: SetlogColors.momentoPink,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: SetlogColors.momentoPink.withValues(alpha: 0.5),
+                            blurRadius: 16,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Icon(CupertinoIcons.camera, color: Colors.white, size: 34),
+                ],
+              ),
+            ),
           ),
         ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(34),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              // Chat Tab
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: SetlogColors.momentoPinkSurface,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(CupertinoIcons.chat_bubble_fill, color: SetlogColors.momentoPink, size: 24),
-              ),
-              // Camera Tab Highlighted Momento Pink
-              GestureDetector(
-                onTap: () => context.push('/main/camera'),
-                child: Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: SetlogColors.momentoPink,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: SetlogColors.momentoPink.withValues(alpha: 0.4),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(CupertinoIcons.camera_fill, color: Colors.white, size: 24),
-                ),
-              ),
-              // Friends Tab
-              IconButton(
-                icon: const Icon(CupertinoIcons.person_2, color: Color(0xFF8E8E93), size: 26),
-                onPressed: () => context.push('/friends'),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

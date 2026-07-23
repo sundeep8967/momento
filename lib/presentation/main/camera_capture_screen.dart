@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'dart:io';
+import 'dart:ui';
 import 'package:go_router/go_router.dart';
 import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../data/log_repository.dart';
@@ -153,6 +156,23 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     });
   }
 
+  Future<void> _pickFromGallery() async {
+    HapticFeedback.lightImpact();
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null && mounted) {
+        setState(() {
+          _recordedFile = pickedFile;
+          _isVideo = false;
+          _isReviewing = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Gallery pick error: $e');
+    }
+  }
+
   void _flipOrientation() {
     HapticFeedback.lightImpact();
     setState(() => _isLandscape = !_isLandscape);
@@ -161,57 +181,59 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: SetlogColors.cameraBackground,
+      backgroundColor: Colors.black,
       resizeToAvoidBottomInset: false,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // Camera preview
-            Center(
-              child: RotatedBox(
-                quarterTurns: _isLandscape ? 1 : 0,
-                child: Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.all(16),
-                  clipBehavior: Clip.hardEdge,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[900],
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: _isCameraInitialized
-                      ? Transform.scale(
-                          scale: 1.05,
-                          child: Center(child: CameraPreview(_cameraController!)),
-                        )
-                      : const Center(
-                          child: CircularProgressIndicator(color: SetlogColors.authTerminalAccent),
-                        ),
-                ),
+      body: Stack(
+        children: [
+          // Camera preview / Media display (Full edge-to-edge screen)
+          Positioned.fill(
+            child: RotatedBox(
+              quarterTurns: _isLandscape ? 1 : 0,
+              child: SizedBox.expand(
+                child: (_isReviewing && _recordedFile != null && !_isVideo)
+                    ? Image.file(
+                        File(_recordedFile!.path),
+                        fit: BoxFit.cover,
+                      )
+                    : _isCameraInitialized
+                        ? FittedBox(
+                            fit: BoxFit.cover,
+                            child: SizedBox(
+                              width: _cameraController!.value.previewSize?.height ?? 1,
+                              height: _cameraController!.value.previewSize?.width ?? 1,
+                              child: CameraPreview(_cameraController!),
+                            ),
+                          )
+                        : const Center(
+                            child: CircularProgressIndicator(color: SetlogColors.authTerminalAccent),
+                          ),
               ),
             ),
+          ),
 
             if (!_isReviewing) ...[
-              // Top controls
+              // Top controls with frosted glass circular buttons
               Positioned(
-                top: 16,
-                left: 16,
-                right: 16,
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                      onPressed: () => context.pop(),
+                top: 0,
+                left: 20,
+                right: 20,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Row(
+                      children: [
+                        _buildFrostedCircularButton(
+                          icon: CupertinoIcons.xmark,
+                          onTap: () => context.pop(),
+                        ),
+                        const Spacer(),
+                        _buildFrostedCircularButton(
+                          icon: _isLandscape ? CupertinoIcons.device_phone_portrait : CupertinoIcons.device_phone_landscape,
+                          onTap: _flipOrientation,
+                        ),
+                      ],
                     ),
-                    const Spacer(),
-                    IconButton(
-                      icon: Icon(
-                        _isLandscape ? Icons.stay_current_portrait : Icons.stay_current_landscape,
-                        color: Colors.white,
-                        size: 26,
-                      ),
-                      onPressed: _flipOrientation,
-                    ),
-                  ],
+                  ),
                 ),
               ).animate().fadeIn(delay: 600.ms, duration: 600.ms),
 
@@ -248,8 +270,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                           width: _isRecording ? 52 : 70,
                           height: _isRecording ? 52 : 70,
                           decoration: BoxDecoration(
-                            color: _isRecording ? SetlogColors.cameraTimerProgress : Colors.white,
+                            color: _isRecording ? SetlogColors.cameraTimerProgress : SetlogColors.momentoPink,
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: SetlogColors.momentoPink.withOpacity(0.5),
+                                blurRadius: 16,
+                                spreadRadius: 2,
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -268,102 +297,162 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                     opacity: _isRecording ? 0.0 : 1.0,
                     duration: const Duration(milliseconds: 200),
                     child: const Text(
-                      'Hold to record  ·  5s max',
+                      'Tap for photo  ·  Hold to record',
                       style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ),
               ).animate().fadeIn(delay: 800.ms, duration: 600.ms),
             ],
-
             if (_isReviewing && !_isSaving) ...[
-              // Review Overlay (Caption & Send)
-              Container(color: Colors.black54),
+              // Top Bar Controls (Floating on photo, no dark background)
               Positioned(
-                top: 32,
-                left: 16,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 32),
-                  onPressed: _discardClip,
-                ),
-              ),
-              Positioned(
-                top: 120,
-                left: 0,
-                right: 0,
-                child: Container(
-                  color: Colors.black.withOpacity(0.65),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: TextField(
-                    controller: _captionController,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.2,
-                    ),
-                    textAlign: TextAlign.center,
-                    decoration: const InputDecoration(
-                      hintText: 'Add a caption...',
-                      hintStyle: TextStyle(color: Colors.white60, fontSize: 18),
-                      border: InputBorder.none,
-                      isDense: true,
-                    ),
-                    autofocus: true,
-                    textInputAction: TextInputAction.done,
-                  ),
-                ),
-              ),
-              // Emoji Sticker Selector Row
-              Positioned(
-                bottom: 90,
-                left: 16,
-                right: 16,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: ['🔥', '❤️', '😂', '😍', '✨', '🎉', '⚡', '💯', '👑', '🥳', '😎']
-                        .map(
-                          (emoji) => GestureDetector(
-                            onTap: () {
-                              _captionController.text = '${_captionController.text} $emoji'.trim();
-                              _captionController.selection = TextSelection.fromPosition(
-                                TextPosition(offset: _captionController.text.length),
-                              );
-                            },
+                top: 0,
+                left: 20,
+                right: 20,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Row(
+                      children: [
+                        _buildFrostedCircularButton(
+                          icon: CupertinoIcons.xmark,
+                          onTap: _discardClip,
+                          buttonSize: 38,
+                          iconSize: 18,
+                        ),
+                        Expanded(
+                          child: Center(
                             child: Container(
-                              margin: const EdgeInsets.only(right: 10),
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.5),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white24),
+                                color: Colors.black.withOpacity(0.38),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
                               ),
-                              child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                              child: const Text(
+                                'New Moment',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
-                        )
-                        .toList(),
+                        ),
+                        const SizedBox(width: 38),
+                      ],
+                    ),
                   ),
                 ),
               ),
+
+              // Bottom Area: Frosted Caption Pill + Circular Action Row
               Positioned(
-                bottom: 32,
-                right: 24,
-                child: CupertinoButton.filled(
-                  onPressed: _saveClip,
-                  borderRadius: BorderRadius.circular(24),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Send To', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                      SizedBox(width: 8),
-                      Icon(CupertinoIcons.paperplane_fill, size: 20),
-                    ],
-                  ),
+                bottom: 24,
+                left: 20,
+                right: 20,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Frosted Glass Capsule Caption Field
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(26),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                        child: Container(
+                          height: 52,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.35),
+                            borderRadius: BorderRadius.circular(26),
+                            border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _captionController,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Add a caption...',
+                                    hintStyle: TextStyle(color: Colors.white70, fontSize: 16),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                  ),
+                                  autofocus: false,
+                                  textInputAction: TextInputAction.done,
+                                ),
+                              ),
+                              const Icon(CupertinoIcons.smiley, color: Colors.white, size: 22),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Action Buttons Row (Gallery on left, Pink Send in middle)
+                    Row(
+                      children: [
+                        // Gallery / Photos Icon on far left
+                        _buildFrostedCircularButton(
+                          icon: CupertinoIcons.photo_on_rectangle,
+                          onTap: _pickFromGallery,
+                        ),
+                        const Spacer(),
+                        // Primary Pink Send Button with "Send" text in center
+                        GestureDetector(
+                          onTap: _saveClip,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+                            decoration: BoxDecoration(
+                              color: SetlogColors.momentoPink,
+                              borderRadius: BorderRadius.circular(28),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: SetlogColors.momentoPink.withOpacity(0.5),
+                                  blurRadius: 16,
+                                  spreadRadius: 2,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Send',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Icon(
+                                  CupertinoIcons.paperplane_fill,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        // Spacer balance to keep Send button perfectly centered
+                        const SizedBox(width: 48),
+                      ],
+                    ),
+                  ],
                 ),
-              )
+              ),
             ],
 
             // Saving overlay
@@ -421,6 +510,37 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                 ),
               ).animate().fadeIn(duration: 200.ms).fadeOut(delay: 1500.ms, duration: 400.ms),
           ],
+        ),
+      );
+    }
+
+  Widget _buildFrostedCircularButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    double buttonSize = 48,
+    double iconSize = 22,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Container(
+            width: buttonSize,
+            height: buttonSize,
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.38),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withOpacity(0.25), width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: iconSize),
+          ),
         ),
       ),
     );
