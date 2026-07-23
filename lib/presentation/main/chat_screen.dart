@@ -136,13 +136,40 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(CupertinoIcons.camera_fill, color: Colors.grey, size: 24),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withOpacity(0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(CupertinoIcons.camera_fill, color: Colors.grey, size: 22),
+                    ),
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          CupertinoIcons.lock_fill,
+                          color: Colors.grey.shade600,
+                          size: 11,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(width: 12),
                 Expanded(
