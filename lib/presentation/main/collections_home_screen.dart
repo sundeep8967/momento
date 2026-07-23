@@ -26,13 +26,6 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/friends'),
-        backgroundColor: SetlogColors.momentoPink,
-        elevation: 6,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        child: const Icon(CupertinoIcons.chat_bubble_text_fill, color: Colors.white, size: 24),
-      ),
       bottomNavigationBar: _buildFloatingBottomBar(context),
       body: StreamBuilder<List<DirectSnap>>(
         stream: snapRepo.getInboxStream(),
@@ -251,11 +244,6 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                 ),
                 child: const Icon(CupertinoIcons.chat_bubble_fill, color: SetlogColors.momentoPink, size: 24),
               ),
-              // Friends Tab
-              IconButton(
-                icon: const Icon(CupertinoIcons.person_2, color: Color(0xFF8E8E93), size: 26),
-                onPressed: () => context.push('/friends'),
-              ),
               // Camera Tab Highlighted Momento Pink
               GestureDetector(
                 onTap: () => context.push('/main/camera'),
@@ -275,6 +263,11 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                   ),
                   child: const Icon(CupertinoIcons.camera_fill, color: Colors.white, size: 24),
                 ),
+              ),
+              // Friends Tab
+              IconButton(
+                icon: const Icon(CupertinoIcons.person_2, color: Color(0xFF8E8E93), size: 26),
+                onPressed: () => context.push('/friends'),
               ),
             ],
           ),
