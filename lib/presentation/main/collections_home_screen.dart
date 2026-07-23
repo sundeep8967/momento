@@ -89,21 +89,27 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(14),
-                              child: Image.network(
-                                'https://api.dicebear.com/7.x/adventurer/png?seed=MomentoUser&backgroundColor=f8f9fa',
+                              child: Image.asset(
+                                'assets/app_icon.png',
                                 fit: BoxFit.cover,
                               ),
                             ),
                           ),
                         ),
 
-                        // Title "CHAT"
+                        // Title "Momento" (British Handwriting Style - Offline Native)
                         const Text(
-                          'CHAT',
+                          'Momento',
                           style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.8,
+                            fontFamily: 'Snell Roundhand',
+                            fontFamilyFallback: [
+                              'Bradley Hand',
+                              'Dancing Script',
+                              'Great Vibes',
+                              'cursive',
+                            ],
+                            fontSize: 32,
+                            fontWeight: FontWeight.w700,
                             color: Colors.black,
                           ),
                         ),
