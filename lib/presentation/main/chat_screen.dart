@@ -20,6 +20,10 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   UserProfile? _userProfile;
+  final List<Map<String, dynamic>> _mockMessages = [
+    {'text': 'Sure, I am nearby!', 'isMe': true},
+    {'text': 'Hey! Want to grab some chai?', 'isMe': false},
+  ];
 
   @override
   void initState() {
@@ -81,14 +85,38 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
-          // Chat Messages (Empty for now)
+          // Chat Messages
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               reverse: true, // Start from bottom
-              children: const [
-                // In the future, chat bubbles go here
-              ],
+              itemCount: _mockMessages.length,
+              itemBuilder: (context, index) {
+                final msg = _mockMessages[index];
+                final isMe = msg['isMe'] as bool;
+                
+                return Align(
+                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isMe ? CupertinoColors.activeBlue : Colors.grey.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20).copyWith(
+                        bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(20),
+                        bottomLeft: !isMe ? const Radius.circular(4) : const Radius.circular(20),
+                      ),
+                    ),
+                    child: Text(
+                      msg['text'] as String,
+                      style: TextStyle(
+                        color: isMe ? Colors.white : Colors.black87,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
           
@@ -133,7 +161,13 @@ class _ChatScreenState extends State<ChatScreen> {
                         contentPadding: EdgeInsets.symmetric(vertical: 10),
                       ),
                       onSubmitted: (text) async {
-                        if (text.trim().isEmpty) return;
+                        final textSent = text.trim();
+                        if (textSent.isEmpty) return;
+                        
+                        // Optimistically add to mock UI
+                        setState(() {
+                          _mockMessages.insert(0, {'text': textSent, 'isMe': true});
+                        });
                         
                         final currentUser = FirebaseAuth.instance.currentUser;
                         if (currentUser != null) {

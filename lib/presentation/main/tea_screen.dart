@@ -84,15 +84,17 @@ class _TeaScreenState extends ConsumerState<TeaScreen> {
     });
   }
   
-  Future<void> _onUserTapped(String uid) async {
-    _stopSearching();
-    await _matchRepo.matchWithUser(uid);
-    // Usually you'd fetch real profile, here we mock it if it's a mock user
+  void _onUserTapped(String uid) {
+    // Fire match update in background without awaiting
+    _matchRepo.matchWithUser(uid).catchError((e) {
+      debugPrint('Error matching with user: $e');
+    });
     
-    // Push directly to chat screen
-    if (mounted) {
-      context.push('/chat/$uid');
-    }
+    // Push directly & instantly to chat screen
+    context.push('/chat/$uid');
+    
+    // Reset searching state
+    _stopSearching();
   }
 
   @override
@@ -293,8 +295,9 @@ class _TeaScreenState extends ConsumerState<TeaScreen> {
     // Normalize distance (0.0 to 1.0) for 50km max
     double normalizedDist = (distance / 50000).clamp(0.0, 1.0);
     
-    // Map to a visual magnitude between 0.35 and 1.0 so they don't cover the center cup!
-    double magnitude = 0.35 + (normalizedDist * 0.65);
+    // Map to a visual magnitude between 0.55 and 1.0 so they don't cover the center cup!
+    // Minimum magnitude is increased to 0.55 because the central cup is quite large (~100px)
+    double magnitude = 0.55 + (normalizedDist * 0.45);
     
     // Calculate alignment (X and Y between -1.0 and 1.0)
     double alignX = math.cos(angle) * magnitude;
