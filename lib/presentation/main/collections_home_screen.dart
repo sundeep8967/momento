@@ -183,16 +183,17 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
 
                       return GestureDetector(
                         onTap: () {
-                          if (!isMe) {
-                            context.push('/main/snap_viewer', extra: {'snaps': userSnaps, 'initialIndex': 0});
-                          } else {
-                            context.push('/main/snap_viewer', extra: {'snaps': userSnaps, 'initialIndex': 0});
+                          if (isNew) {
+                            final unreadSnaps = userSnaps.where((s) => !s.isViewed && s.senderUid != currentUid).toList();
+                            if (unreadSnaps.isNotEmpty) {
+                              context.push('/main/snap_viewer', extra: unreadSnaps);
+                            }
                           }
                         },
                         child: ChatCardItem(
                           name: displayName,
-                          status: isNew ? 'NEW SNAP • TAP TO VIEW' : (isMe ? 'Delivered' : 'Received'),
-                          statusColor: isNew ? SetlogColors.snapViewerAccent : const Color(0xFF666666),
+                          status: isNew ? 'NEW MOMENTO • TAP TO VIEW' : (isMe ? 'Delivered' : 'Opened'),
+                          statusColor: isNew ? SetlogColors.momentoPink : const Color(0xFF666666),
                           time: timeago.format(snap.timestamp, locale: 'en_short').toUpperCase(),
                           streak: unreadCount > 0 ? unreadCount : null,
                           avatarSeed: displayName,
@@ -315,8 +316,8 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
     return const [
       ChatCardItem(
         name: 'Chloe Miller',
-        status: 'NEW SNAP • TAP TO VIEW',
-        statusColor: SetlogColors.snapViewerAccent,
+        status: 'NEW MOMENTO • TAP TO VIEW',
+        statusColor: SetlogColors.momentoPink,
         time: '2M',
         avatarSeed: 'Chloe',
         isNew: true,
@@ -567,6 +568,15 @@ class ChatCardItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
         ),
       );
+    } else if (isOpened) {
+      return Container(
+        width: 14,
+        height: 14,
+        decoration: BoxDecoration(
+          border: Border.all(color: statusColor, width: 2),
+          borderRadius: BorderRadius.circular(4),
+        ),
+      );
     } else if (isDelivered) {
       return const Icon(CupertinoIcons.location_fill, color: Color(0xFF8E8E93), size: 14);
     } else if (isChatReceived) {
@@ -579,13 +589,13 @@ class ChatCardItem extends StatelessWidget {
         ),
       );
     } else if (isVideo) {
-      return const Icon(CupertinoIcons.play_circle_fill, color: SetlogColors.momentoPink, size: 14);
+      return Icon(CupertinoIcons.play_circle_fill, color: statusColor, size: 14);
     } else {
       return Container(
         width: 12,
         height: 12,
         decoration: BoxDecoration(
-          border: Border.all(color: SetlogColors.momentoPink, width: 2),
+          border: Border.all(color: statusColor, width: 2),
           shape: BoxShape.circle,
         ),
       );

@@ -115,12 +115,18 @@ class _AuthLandingScreenState extends State<AuthLandingScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    CupertinoButton.filled(
-                      onPressed: _isLoading ? null : () => context.go('/auth/email'),
+                    CupertinoButton(
+                      onPressed: () {
+                        // TODO: Navigate to Terms & Conditions
+                      },
+                      color: SetlogColors.momentoPink,
                       borderRadius: BorderRadius.circular(14),
                       child: const Text(
-                        'Continue with Email & Password',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                        'Terms & Conditions',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
