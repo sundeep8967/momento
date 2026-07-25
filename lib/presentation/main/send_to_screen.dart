@@ -41,7 +41,6 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
   
   final Set<String> _selectedFriendUids = {};
   final Set<String> _selectedGroupIds = {};
-  bool _dropOnMap = false;
 
   @override
   void initState() {
