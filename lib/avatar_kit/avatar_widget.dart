@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:dicebear_core/dicebear_core.dart' hide Color;
 import 'package:dicebear_styles/avataaars.dart';
+import 'package:dicebear_styles/adventurer.dart';
+import 'package:dicebear_styles/bottts.dart';
+import 'package:dicebear_styles/fun_emoji.dart';
+import 'package:dicebear_styles/pixel_art.dart';
+import 'package:dicebear_styles/lorelei.dart';
 import 'momento_avatar.dart';
 import '../theme/colors.dart';
 
@@ -24,10 +29,7 @@ class AvatarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Generate avatar SVG offline with the fully mapped options
-    final style = Style.parse(avataaars);
-    final avatarData = Avatar(style, avatar.toMap());
-    final svgString = avatarData.svg;
+    final svgString = _buildSvg();
 
     Widget avatarWidget = ClipOval(
       child: SvgPicture.string(
@@ -73,5 +75,22 @@ class AvatarWidget extends StatelessWidget {
     }
 
     return avatarWidget;
+  }
+
+  String _buildSvg() {
+    switch (avatar.style) {
+      case AvatarStyle.avataaars:
+        return Avatar(Style.parse(avataaars), avatar.toMap()).svg;
+      case AvatarStyle.adventurer:
+        return Avatar(Style.parse(adventurer), {'seed': avatar.seed}).svg;
+      case AvatarStyle.bottts:
+        return Avatar(Style.parse(bottts), {'seed': avatar.seed}).svg;
+      case AvatarStyle.funEmoji:
+        return Avatar(Style.parse(funEmoji), {'seed': avatar.seed}).svg;
+      case AvatarStyle.pixelArt:
+        return Avatar(Style.parse(pixelArt), {'seed': avatar.seed}).svg;
+      case AvatarStyle.lorelei:
+        return Avatar(Style.parse(lorelei), {'seed': avatar.seed}).svg;
+    }
   }
 }

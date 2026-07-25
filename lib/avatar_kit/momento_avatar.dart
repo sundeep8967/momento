@@ -3,8 +3,19 @@ import 'package:crypto/crypto.dart';
 
 /// Momento Avatar Data Model
 /// Mapped directly to DiceBear Avataaars schema properties.
+/// All supported avatar style identifiers (map to DiceBear styles).
+enum AvatarStyle {
+  avataaars,    // 🧑 Human (full customisable)
+  adventurer,   // 🐾 Animal / Cartoon
+  bottts,       // 🤖 Robot
+  funEmoji,     // 😄 Fun Emoji
+  pixelArt,     // 🎨 Pixel Art
+  lorelei,      // 👤 Minimal Illustrated
+}
+
 class MomentoAvatar {
   final String seed;
+  final AvatarStyle style;
   final String skinColor;
   final String top;
   final String hairColor;
@@ -19,12 +30,13 @@ class MomentoAvatar {
   final String eyes;
   final String eyebrows;
   final String mouth;
-  
+
   // App-specific setting for glow background
   final int bgScene;
 
   const MomentoAvatar({
     required this.seed,
+    this.style = AvatarStyle.avataaars,
     this.skinColor = 'ffdbb4',
     this.top = 'shortHair',
     this.hairColor = '2c1b18',
@@ -63,7 +75,7 @@ class MomentoAvatar {
     };
   }
 
-  /// Create a MomentoAvatar completely from a seed using pseudo-random selection
+  /// Create a MomentoAvatar from a seed (avataaars style, full property randomisation)
   factory MomentoAvatar.fromSeed(String seed) {
     final bytes = utf8.encode(seed);
     final hash = sha256.convert(bytes).bytes;
@@ -74,6 +86,7 @@ class MomentoAvatar {
 
     return MomentoAvatar(
       seed: seed,
+      style: AvatarStyle.avataaars,
       skinColor: skinColors[nextIndex(0, skinColors)],
       top: tops[nextIndex(1, tops)],
       hairColor: hairColors[nextIndex(2, hairColors)],
@@ -88,6 +101,18 @@ class MomentoAvatar {
       eyes: eyesList[nextIndex(11, eyesList)],
       eyebrows: eyebrowsList[nextIndex(12, eyebrowsList)],
       mouth: mouths[nextIndex(13, mouths)],
+      bgScene: hash[14 % hash.length] % 8,
+    );
+  }
+
+  /// Create a simple seed-only avatar in any supported style
+  factory MomentoAvatar.fromSeedAndStyle(String seed, AvatarStyle style) {
+    final bytes = utf8.encode(seed);
+    final hash = sha256.convert(bytes).bytes;
+    if (style == AvatarStyle.avataaars) return MomentoAvatar.fromSeed(seed);
+    return MomentoAvatar(
+      seed: seed,
+      style: style,
       bgScene: hash[14 % hash.length] % 8,
     );
   }
@@ -118,7 +143,29 @@ class MomentoAvatar {
     [0xFFFDE047, 0xFFEAB308], // Yellow
   ];
 
+  /// Serialize all fields to a JSON-encodable map (used for avatar: photoUrl storage)
+  Map<String, dynamic> toJson() => {
+        'seed': seed,
+        'style': style.name,
+        'skinColor': skinColor,
+        'top': top,
+        'hairColor': hairColor,
+        'hatColor': hatColor,
+        'accessories': accessories,
+        'accessoriesColor': accessoriesColor,
+        'facialHair': facialHair,
+        'facialHairColor': facialHairColor,
+        'clothes': clothes,
+        'clothesColor': clothesColor,
+        'clothesGraphic': clothesGraphic,
+        'eyes': eyes,
+        'eyebrows': eyebrows,
+        'mouth': mouth,
+        'bgScene': bgScene,
+      };
+
   MomentoAvatar copyWith({
+    AvatarStyle? style,
     String? skinColor,
     String? top,
     String? hairColor,
@@ -137,6 +184,7 @@ class MomentoAvatar {
   }) {
     return MomentoAvatar(
       seed: seed,
+      style: style ?? this.style,
       skinColor: skinColor ?? this.skinColor,
       top: top ?? this.top,
       hairColor: hairColor ?? this.hairColor,

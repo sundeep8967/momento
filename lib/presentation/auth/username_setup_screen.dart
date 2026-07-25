@@ -54,7 +54,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
         displayName: name,
       );
 
-      if (mounted) context.go('/auth/permissions');
+      if (mounted) context.go('/auth/avatar-setup');
     } catch (e) {
       setState(() { _error = 'Something went wrong. Try again.'; _isLoading = false; });
     }

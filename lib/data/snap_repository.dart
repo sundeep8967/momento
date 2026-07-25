@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'friends_repository.dart';
+import 'push_notification_service.dart';
 
 class DirectSnap {
   final String id;
@@ -97,6 +98,28 @@ class SnapRepository {
     }
 
     await batch.commit();
+
+    // Fire push notifications to all recipients (skip sender's own copy)
+    final notifUids = <String>{
+      ...friendUids,
+      for (final g in groups) ...g.members,
+    }..remove(uid); // sender doesn't need a notification for their own snap
+
+    for (final recipientUid in notifUids) {
+      try {
+        final recipientDoc = await _db.collection('users').doc(recipientUid).get();
+        final fcmToken = recipientDoc.data()?['fcmToken'] as String?;
+        if (fcmToken != null && fcmToken.isNotEmpty) {
+          await PushNotificationService.instance.sendPushNotification(
+            targetToken: fcmToken,
+            title: '📸 @$senderUsername sent you a Momento!',
+            body: isVideo ? 'Tap to watch before it disappears.' : 'Tap to view before it disappears.',
+          );
+        }
+      } catch (_) {
+        // Never let a failed notification break the snap send
+      }
+    }
   }
 
   Stream<List<DirectSnap>> getInboxStream() {

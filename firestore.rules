@@ -85,5 +85,11 @@ service cloud.firestore {
       allow create: if isAuth() && request.auth.uid == request.resource.data.blocker;
       allow delete: if isAuth() && request.auth.uid == resource.data.blocker;
     }
+
+    // ── Chai Matches (Tea Room) ──────────────────────────────
+    match /chai_matches/{matchId} {
+      allow read: if isAuth();
+      allow write: if isMe(matchId);
+    }
   }
 }

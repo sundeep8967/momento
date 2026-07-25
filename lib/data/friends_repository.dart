@@ -21,8 +21,22 @@ class UserProfile {
       try {
         final jsonStr = photoUrl.substring(7);
         final map = jsonDecode(jsonStr);
+        final styleStr = map['style'] as String? ?? 'avataaars';
+        final style = AvatarStyle.values.firstWhere(
+          (s) => s.name == styleStr,
+          orElse: () => AvatarStyle.avataaars,
+        );
+        // For non-avataaars styles, only seed + bgScene matter
+        if (style != AvatarStyle.avataaars) {
+          return MomentoAvatar(
+            seed: map['seed'] ?? uid,
+            style: style,
+            bgScene: map['bgScene'] ?? 0,
+          );
+        }
         return MomentoAvatar(
           seed: map['seed'] ?? uid,
+          style: AvatarStyle.avataaars,
           skinColor: map['skinColor'] ?? 'ffdbb4',
           top: map['top'] ?? 'shortHair',
           hairColor: map['hairColor'] ?? '2c1b18',
@@ -250,11 +264,18 @@ class FriendsRepository {
   }) async {
     final uid = _uid;
     if (uid == null) return;
+
+    // Auto-generate a random avatar seeded from the user's UID
+    final avatar = MomentoAvatar.fromSeed(uid);
+    final avatarJson = jsonEncode(avatar.toJson());
+    final photoUrl = 'avatar:$avatarJson';
+
     await _db.collection('users').doc(uid).set({
       'uid': uid,
       'username': username.toLowerCase().trim(),
       'displayName': displayName,
       'email': _auth.currentUser?.email ?? '',
+      'photoUrl': photoUrl,
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

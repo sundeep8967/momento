@@ -4,6 +4,7 @@ import '../presentation/auth/auth_landing_screen.dart';
 import '../presentation/auth/permissions_screen.dart';
 import '../presentation/auth/auth_email_screen.dart';
 import '../presentation/auth/username_setup_screen.dart';
+import '../presentation/auth/avatar_setup_screen.dart';
 import '../presentation/auth/onboarding_screen.dart';
 import '../presentation/main/collections_home_screen.dart';
 import '../presentation/main/camera_capture_screen.dart';
@@ -58,6 +59,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/auth/username',
           builder: (context, state) => const UsernameSetupScreen(),
+        ),
+        GoRoute(
+          path: '/auth/avatar-setup',
+          builder: (context, state) => const AvatarSetupScreen(),
         ),
         GoRoute(
           path: '/auth/permissions',
