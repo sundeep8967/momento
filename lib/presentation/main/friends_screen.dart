@@ -633,27 +633,32 @@ class _FriendsScreenState extends State<FriendsScreen>
           ),
           child: Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [SetlogColors.momentoPink, SetlogColors.snapViewerAccent],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    g.name.isNotEmpty ? g.name[0].toUpperCase() : '?',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        fontSize: 18),
-                  ),
-                ),
-              ),
+              g.photoUrl != null
+                  ? CircleAvatar(
+                      radius: 22,
+                      backgroundImage: NetworkImage(g.photoUrl!),
+                    )
+                  : Container(
+                      width: 44,
+                      height: 44,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [SetlogColors.momentoPink, SetlogColors.snapViewerAccent],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          g.name.isNotEmpty ? g.name[0].toUpperCase() : '?',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              fontSize: 18),
+                        ),
+                      ),
+                    ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

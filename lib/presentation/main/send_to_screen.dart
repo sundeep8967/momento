@@ -9,7 +9,7 @@ import 'package:momento/data/snap_repository.dart';
 import 'package:momento/data/cloudinary_service.dart';
 import 'package:momento/data/local_cache.dart';
 import 'package:momento/theme/colors.dart';
-import 'dart:io';
+import '../../avatar_kit/avatar_widget.dart';
 
 class SendToScreen extends ConsumerStatefulWidget {
   final String mediaPath;
@@ -158,6 +158,31 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
         title: const Text('Send To', style: TextStyle(color: SetlogColors.collectionsHomeTextPrimary, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: SetlogColors.collectionsHomeTextPrimary),
         elevation: 0,
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                final allSelected = _selectedFriendUids.length == _friends.length && 
+                                    (_groups.isEmpty || _selectedGroupIds.length == _groups.length);
+                if (allSelected) {
+                  // Deselect all
+                  _selectedFriendUids.clear();
+                  _selectedGroupIds.clear();
+                } else {
+                  // Select all
+                  _selectedFriendUids.addAll(_friends.map((f) => f.uid));
+                  _selectedGroupIds.addAll(_groups.map((g) => g.id));
+                }
+              });
+            },
+            child: Text(
+              _selectedFriendUids.length == _friends.length && (_groups.isEmpty || _selectedGroupIds.length == _groups.length) && _friends.isNotEmpty 
+                  ? 'Deselect All' 
+                  : 'Select All',
+              style: const TextStyle(color: SetlogColors.momentoPink, fontWeight: FontWeight.bold),
+            ),
+          )
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: SetlogColors.brownPrimary))
@@ -168,40 +193,79 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                   children: [
                     if (_groups.isNotEmpty) ...[
                       const Padding(
-                        padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
+                        padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
                         child: Text('GROUPS', style: TextStyle(color: SetlogColors.collectionsHomeTextSecondary, fontSize: 13, fontWeight: FontWeight.w600)),
                       ),
-                      Container(
-                        color: SetlogColors.authSurface,
-                        child: Column(
-                          children: _groups.map((group) {
+                      SizedBox(
+                        height: 96,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _groups.length,
+                          itemBuilder: (context, index) {
+                            final group = _groups[index];
                             final isSelected = _selectedGroupIds.contains(group.id);
-                            return Column(
-                              children: [
-                                ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                                  leading: CircleAvatar(
-                                    backgroundColor: SetlogColors.brownPrimary.withOpacity(0.1),
-                                    child: Icon(CupertinoIcons.group_solid, color: SetlogColors.brownPrimary),
-                                  ),
-                                  title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.w500, color: SetlogColors.collectionsHomeTextPrimary)),
-                                  trailing: Icon(
-                                    isSelected ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
-                                    color: isSelected ? SetlogColors.brownPrimary : CupertinoColors.systemGrey4,
-                                    size: 28,
-                                  ),
-                                  onTap: () {
-                                    setState(() {
-                                      if (isSelected) _selectedGroupIds.remove(group.id);
-                                      else _selectedGroupIds.add(group.id);
-                                    });
-                                  },
+                            
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  if (isSelected) _selectedGroupIds.remove(group.id);
+                                  else _selectedGroupIds.add(group.id);
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Stack(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 30,
+                                          backgroundColor: isSelected ? SetlogColors.momentoPink.withOpacity(0.15) : SetlogColors.authSurface,
+                                          backgroundImage: group.photoUrl != null ? NetworkImage(group.photoUrl!) : null,
+                                          child: group.photoUrl == null 
+                                              ? Icon(
+                                                  CupertinoIcons.group_solid, 
+                                                  color: isSelected ? SetlogColors.momentoPink : SetlogColors.brownPrimary,
+                                                  size: 28,
+                                                )
+                                              : null,
+                                        ),
+                                        if (isSelected)
+                                          Positioned(
+                                            bottom: 0,
+                                            right: 0,
+                                            child: Container(
+                                              decoration: const BoxDecoration(
+                                                color: Colors.white,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(CupertinoIcons.checkmark_circle_fill, color: SetlogColors.momentoPink, size: 22),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    SizedBox(
+                                      width: 68,
+                                      child: Text(
+                                        group.name,
+                                        textAlign: TextAlign.center,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                          color: isSelected ? SetlogColors.momentoPink : SetlogColors.collectionsHomeTextPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                if (group != _groups.last)
-                                  const Divider(height: 1, indent: 76, color: SetlogColors.authStrokeSoft),
-                              ],
+                              ),
                             );
-                          }).toList(),
+                          },
                         ),
                       ),
                     ],
@@ -219,14 +283,21 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                               children: [
                                 ListTile(
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                                  leading: CircleAvatar(
-                                    backgroundColor: SetlogColors.brownPrimary.withOpacity(0.1),
-                                    child: Text(
-                                      friend.username.isNotEmpty ? friend.username[0].toUpperCase() : '?',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: SetlogColors.brownPrimary),
-                                    ),
+                                  leading: friend.avatar != null
+                                      ? AvatarWidget(avatar: friend.avatar!, size: 40)
+                                      : CircleAvatar(
+                                          backgroundColor: SetlogColors.brownPrimary.withOpacity(0.1),
+                                          child: Text(
+                                            friend.username.isNotEmpty ? friend.username[0].toUpperCase() : '?',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, color: SetlogColors.brownPrimary),
+                                          ),
+                                        ),
+                                  title: Text(
+                                    friend.uid == FirebaseAuth.instance.currentUser?.uid 
+                                        ? '${friend.username} (Myself)' 
+                                        : friend.username, 
+                                    style: const TextStyle(fontWeight: FontWeight.w500, color: SetlogColors.collectionsHomeTextPrimary)
                                   ),
-                                  title: Text(friend.username, style: const TextStyle(fontWeight: FontWeight.w500, color: SetlogColors.collectionsHomeTextPrimary)),
                                   trailing: Icon(
                                     isSelected ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
                                     color: isSelected ? SetlogColors.brownPrimary : CupertinoColors.systemGrey4,

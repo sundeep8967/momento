@@ -3,7 +3,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:momento/data/friends_repository.dart';
+import 'package:momento/data/cloudinary_service.dart';
 import 'package:momento/theme/colors.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class CreateGroupScreen extends ConsumerStatefulWidget {
   const CreateGroupScreen({super.key});
@@ -20,6 +23,17 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   final Set<String> _selectedFriendUids = {};
   
   final TextEditingController _nameController = TextEditingController();
+  String? _selectedImagePath;
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null && mounted) {
+      setState(() {
+        _selectedImagePath = picked.path;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -49,7 +63,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
 
     setState(() => _isCreating = true);
     try {
-      await FriendsRepository.instance.createGroup(name, _selectedFriendUids.toList());
+      String? photoUrl;
+      if (_selectedImagePath != null) {
+        photoUrl = await CloudinaryService.uploadImage(_selectedImagePath!);
+      }
+      
+      await FriendsRepository.instance.createGroup(name, _selectedFriendUids.toList(), photoUrl: photoUrl);
       if (mounted) {
         context.pop();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -80,6 +99,34 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
           ? const Center(child: CircularProgressIndicator(color: SetlogColors.brownPrimary))
           : Column(
               children: [
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 40,
+                        backgroundColor: SetlogColors.brownPrimary.withOpacity(0.1),
+                        backgroundImage: _selectedImagePath != null ? FileImage(File(_selectedImagePath!)) : null,
+                        child: _selectedImagePath == null 
+                            ? const Icon(CupertinoIcons.group_solid, size: 40, color: SetlogColors.brownPrimary)
+                            : null,
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: SetlogColors.momentoPink,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(CupertinoIcons.camera_fill, color: Colors.white, size: 16),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: TextField(

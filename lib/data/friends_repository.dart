@@ -110,6 +110,7 @@ class Friendship {
 class Group {
   final String id;
   final String name;
+  final String? photoUrl;
   final List<String> members;
   final String createdBy;
   final DateTime createdAt;
@@ -117,6 +118,7 @@ class Group {
   Group({
     required this.id,
     required this.name,
+    this.photoUrl,
     required this.members,
     required this.createdBy,
     required this.createdAt,
@@ -125,6 +127,7 @@ class Group {
   factory Group.fromFirestore(String id, Map<String, dynamic> data) => Group(
         id: id,
         name: data['name'] ?? '',
+        photoUrl: data['photoUrl'],
         members: List<String>.from(data['members'] ?? []),
         createdBy: data['createdBy'] ?? '',
         createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -338,7 +341,7 @@ class FriendsRepository {
   // Groups
   // ─────────────────────────────────────────────
 
-  Future<void> createGroup(String name, List<String> friendUids) async {
+  Future<void> createGroup(String name, List<String> friendUids, {String? photoUrl}) async {
     final uid = _uid;
     if (uid == null) return;
     
@@ -346,6 +349,7 @@ class FriendsRepository {
     
     await _db.collection('groups').add({
       'name': name,
+      if (photoUrl != null) 'photoUrl': photoUrl,
       'members': members,
       'createdBy': uid,
       'createdAt': FieldValue.serverTimestamp(),
