@@ -13,6 +13,8 @@ class DirectSnap {
   final DateTime timestamp;
   final bool isViewed;
   final bool isVideo;
+  final double? lat;
+  final double? lng;
 
   DirectSnap({
     required this.id,
@@ -23,6 +25,8 @@ class DirectSnap {
     required this.timestamp,
     required this.isViewed,
     this.isVideo = true,
+    this.lat,
+    this.lng,
   });
 
   factory DirectSnap.fromFirestore(String id, Map<String, dynamic> data) => DirectSnap(
@@ -34,6 +38,8 @@ class DirectSnap {
         timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
         isViewed: data['isViewed'] ?? false,
         isVideo: data['isVideo'] ?? true, // Default to true for backwards compatibility
+        lat: (data['lat'] as num?)?.toDouble(),
+        lng: (data['lng'] as num?)?.toDouble(),
       );
 }
 
@@ -54,6 +60,8 @@ class SnapRepository {
     required bool isVideo,
     required List<String> friendUids,
     required List<Group> groups,
+    double? lat,
+    double? lng,
   }) async {
     final uid = _uid;
     if (uid == null) return;
@@ -77,6 +85,8 @@ class SnapRepository {
         'isVideo': isVideo,
         'timestamp': FieldValue.serverTimestamp(),
         'isViewed': false,
+        if (lat != null) 'lat': lat,
+        if (lng != null) 'lng': lng,
       });
     }
 
@@ -93,6 +103,8 @@ class SnapRepository {
           'isVideo': isVideo,
           'timestamp': FieldValue.serverTimestamp(),
           'isViewed': false,
+          if (lat != null) 'lat': lat,
+          if (lng != null) 'lng': lng,
         });
       }
     }

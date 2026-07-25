@@ -97,19 +97,27 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                         ),
 
                         // Title "Momento" (British Handwriting Style - Offline Native)
-                        const Text(
-                          'Momento',
-                          style: TextStyle(
-                            fontFamily: 'Snell Roundhand',
-                            fontFamilyFallback: [
-                              'Bradley Hand',
-                              'Dancing Script',
-                              'Great Vibes',
-                              'cursive',
+                        GestureDetector(
+                          onTap: () => context.push('/map'),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Momento',
+                                style: TextStyle(
+                                  fontFamily: 'Snell Roundhand',
+                                  fontFamilyFallback: [
+                                    'Bradley Hand',
+                                    'Dancing Script',
+                                    'Great Vibes',
+                                    'cursive',
+                                  ],
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black,
+                                ),
+                              ),
                             ],
-                            fontSize: 32,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
                           ),
                         ),
 

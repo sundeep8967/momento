@@ -19,6 +19,7 @@ import '../presentation/main/chat_screen.dart';
 import '../avatar_kit/avatar_kit_screen.dart';
 import '../presentation/groups/create_group_screen.dart';
 import '../presentation/main/snap_viewer_screen.dart';
+import '../presentation/main/snap_map_screen.dart';
 import '../data/snap_repository.dart';
 import '../presentation/splash/animated_splash_screen.dart';
 import '../theme/colors.dart';
@@ -140,6 +141,12 @@ final GoRouter appRouter = GoRouter(
         final uid = state.pathParameters['uid']!;
         return ChatScreen(uid: uid);
       },
+    ),
+
+    // ── Snap Map ──
+    GoRoute(
+      path: '/map',
+      builder: (context, state) => const SnapMapScreen(),
     ),
 
     // ── Friends & Social ──

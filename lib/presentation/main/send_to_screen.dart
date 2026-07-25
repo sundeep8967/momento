@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:momento/avatar_kit/avatar_widget.dart';
+import 'package:momento/avatar_kit/momento_avatar.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:momento/data/friends_repository.dart';
 import 'package:momento/data/snap_repository.dart';
 import 'package:momento/data/cloudinary_service.dart';
@@ -36,6 +39,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
   
   final Set<String> _selectedFriendUids = {};
   final Set<String> _selectedGroupIds = {};
+  bool _dropOnMap = false;
 
   @override
   void initState() {
@@ -125,6 +129,24 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
     // Run the heavy lifting in the background
     Future.microtask(() async {
       try {
+        // 0. Fetch location if dropping on map
+        double? lat;
+        double? lng;
+        if (_dropOnMap) {
+          bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+          if (serviceEnabled) {
+            LocationPermission permission = await Geolocator.checkPermission();
+            if (permission == LocationPermission.denied) {
+              permission = await Geolocator.requestPermission();
+            }
+            if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+              final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+              lat = position.latitude;
+              lng = position.longitude;
+            }
+          }
+        }
+
         // 1. Upload media to Cloudinary
         final mediaUrl = isVideo 
             ? await CloudinaryService.uploadVideo(mediaPath)
@@ -136,6 +158,8 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
           isVideo: isVideo,
           friendUids: friendUids,
           groups: selectedGroups,
+          lat: lat,
+          lng: lng,
         );
 
         scaffoldMessenger.showSnackBar(
@@ -191,6 +215,25 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
               : ListView(
                   padding: const EdgeInsets.only(bottom: 100),
                   children: [
+                    Container(
+                      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: SetlogColors.authStrokeSoft),
+                      ),
+                      child: SwitchListTile(
+                        title: const Text('📍 Drop on Map', style: TextStyle(fontWeight: FontWeight.bold, color: SetlogColors.collectionsHomeTextPrimary)),
+                        subtitle: const Text('Friends must physically walk here to unlock it!', style: TextStyle(fontSize: 12, color: SetlogColors.collectionsHomeTextSecondary)),
+                        activeColor: SetlogColors.momentoPink,
+                        value: _dropOnMap,
+                        onChanged: (val) {
+                          setState(() {
+                            _dropOnMap = val;
+                          });
+                        },
+                      ),
+                    ),
                     if (_groups.isNotEmpty) ...[
                       const Padding(
                         padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
