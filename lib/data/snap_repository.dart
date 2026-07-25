@@ -134,6 +134,43 @@ class SnapRepository {
     }
   }
 
+  // ── Public Local Snaps ──
+
+  Future<void> sendLocalSnap({
+    required String videoUrl,
+    required bool isVideo,
+    required double lat,
+    required double lng,
+  }) async {
+    final uid = _uid;
+    if (uid == null) return;
+    
+    final senderDoc = await _db.collection('users').doc(uid).get();
+    final senderUsername = senderDoc.data()?['username'] ?? 'Unknown';
+
+    final snapRef = _db.collection('local_snaps').doc();
+    await snapRef.set({
+      'senderUid': uid,
+      'senderUsername': senderUsername,
+      'groupName': null,
+      'videoUrl': videoUrl,
+      'isVideo': isVideo,
+      'timestamp': FieldValue.serverTimestamp(),
+      'isViewed': false,
+      'lat': lat,
+      'lng': lng,
+    });
+  }
+
+  Stream<List<DirectSnap>> getLocalSnapsStream() {
+    return _db
+        .collection('local_snaps')
+        .orderBy('timestamp', descending: true)
+        .limit(100)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => DirectSnap.fromFirestore(d.id, d.data())).toList());
+  }
+
   Stream<List<DirectSnap>> getInboxStream() {
     final uid = _uid;
     if (uid == null) return const Stream.empty();

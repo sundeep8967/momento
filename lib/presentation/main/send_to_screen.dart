@@ -33,6 +33,8 @@ class SendToScreen extends ConsumerStatefulWidget {
 class _SendToScreenState extends ConsumerState<SendToScreen> {
   bool _isLoading = true;
   bool _isSending = false;
+  bool _dropOnMap = false;
+  bool _postToLocal = false;
   
   List<UserProfile> _friends = [];
   List<Group> _groups = [];
@@ -153,14 +155,31 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
             : await CloudinaryService.uploadImage(mediaPath);
 
         // 2. Send snap via repository
-        await snapRepo.sendSnap(
-          videoUrl: mediaUrl, 
-          isVideo: isVideo,
-          friendUids: friendUids,
-          groups: selectedGroups,
-          lat: lat,
-          lng: lng,
-        );
+        if (_selectedFriendUids.isNotEmpty || selectedGroups.isNotEmpty) {
+          await snapRepo.sendSnap(
+            videoUrl: mediaUrl, 
+            isVideo: isVideo,
+            friendUids: friendUids,
+            groups: selectedGroups,
+            lat: lat,
+            lng: lng,
+          );
+        }
+
+        if (_postToLocal) {
+          // Send to public local map
+          if (lat == null || lng == null) {
+            Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+            lat = position.latitude;
+            lng = position.longitude;
+          }
+          await snapRepo.sendLocalSnap(
+            videoUrl: mediaUrl,
+            isVideo: isVideo,
+            lat: lat!,
+            lng: lng!,
+          );
+        }
 
         scaffoldMessenger.showSnackBar(
           const SnackBar(content: Text('Momento sent!'), backgroundColor: SetlogColors.authTerminalAccent)
@@ -222,16 +241,33 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: SetlogColors.authStrokeSoft),
                       ),
-                      child: SwitchListTile(
-                        title: const Text('📍 Drop on Map', style: TextStyle(fontWeight: FontWeight.bold, color: SetlogColors.collectionsHomeTextPrimary)),
-                        subtitle: const Text('Friends must physically walk here to unlock it!', style: TextStyle(fontSize: 12, color: SetlogColors.collectionsHomeTextSecondary)),
-                        activeColor: SetlogColors.momentoPink,
-                        value: _dropOnMap,
-                        onChanged: (val) {
-                          setState(() {
-                            _dropOnMap = val;
-                          });
-                        },
+                      child: Column(
+                        children: [
+                          SwitchListTile(
+                            title: const Text('🌍 Post to Local Map', style: TextStyle(fontWeight: FontWeight.bold, color: SetlogColors.collectionsHomeTextPrimary)),
+                            subtitle: const Text('Make this public for anyone nearby to find!', style: TextStyle(fontSize: 12, color: SetlogColors.collectionsHomeTextSecondary)),
+                            activeColor: SetlogColors.momentoPink,
+                            value: _postToLocal,
+                            onChanged: (val) {
+                              setState(() {
+                                _postToLocal = val;
+                                if (val) _dropOnMap = true; // Local snaps must be dropped on map
+                              });
+                            },
+                          ),
+                          const Divider(height: 1),
+                          SwitchListTile(
+                            title: const Text('📍 Drop on Map', style: TextStyle(fontWeight: FontWeight.bold, color: SetlogColors.collectionsHomeTextPrimary)),
+                            subtitle: const Text('Friends must physically walk here to unlock it!', style: TextStyle(fontSize: 12, color: SetlogColors.collectionsHomeTextSecondary)),
+                            activeColor: SetlogColors.momentoPink,
+                            value: _dropOnMap,
+                            onChanged: _postToLocal ? null : (val) {
+                              setState(() {
+                                _dropOnMap = val;
+                              });
+                            },
+                          ),
+                        ],
                       ),
                     ),
                     if (_groups.isNotEmpty) ...[

@@ -7,6 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:momento/data/snap_repository.dart';
 import 'package:go_router/go_router.dart';
 import 'package:momento/theme/colors.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:momento/avatar_kit/avatar_widget.dart';
+import 'package:momento/avatar_kit/momento_avatar.dart';
 
 class SnapMapScreen extends ConsumerStatefulWidget {
   const SnapMapScreen({super.key});
@@ -56,12 +59,12 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
 
     if (distance <= 50) {
       // Unlock!
-      context.push('/snap-viewer', extra: {'snap': snap});
+      context.push('/main/snap_viewer', extra: [snap]);
     } else {
       // Too far
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('You must be within 50 meters to unlock this Momento! You are ${distance.toStringAsFixed(0)}m away.'),
+          content: Text('📍 Get closer! You must be within 50 meters to unlock this Momento. You are ${distance.toStringAsFixed(0)}m away.'),
           backgroundColor: Colors.redAccent,
         )
       );
@@ -74,12 +77,19 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
 
     return Scaffold(
       body: StreamBuilder<List<DirectSnap>>(
-        stream: snapRepo.getInboxStream(),
+        stream: _selectedTab == 0 ? snapRepo.getInboxStream() : snapRepo.getLocalSnapsStream(),
         builder: (context, snapshot) {
           final snaps = snapshot.data ?? [];
-          final mapSnaps = _selectedTab == 0
-              ? snaps.where((s) => s.lat != null && s.lng != null && !s.isViewed).toList()
-              : <DirectSnap>[]; // TODO: Implement global public local snaps
+          final mapSnaps = snaps.where((s) {
+            if (s.lat == null || s.lng == null || s.isViewed) return false;
+            
+            if (_selectedTab == 1 && _currentLocation != null) {
+              // Local public snaps: filter by 10km radius
+              final dist = Geolocator.distanceBetween(_currentLocation!.latitude, _currentLocation!.longitude, s.lat!, s.lng!);
+              if (dist > 10000) return false;
+            }
+            return true;
+          }).toList();
 
           return Stack(
             children: [
@@ -100,17 +110,13 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
                       if (_currentLocation != null)
                         Marker(
                           point: _currentLocation!,
-                          width: 40,
-                          height: 40,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.blueAccent,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 3),
-                              boxShadow: const [
-                                BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0,2))
-                              ]
-                            ),
+                          width: 50,
+                          height: 50,
+                          child: AvatarWidget(
+                            avatar: MomentoAvatar.fromSeed(FirebaseAuth.instance.currentUser?.uid ?? 'momento'),
+                            size: 50,
+                            showBorder: true,
+                            showGlow: true,
                           ),
                         ),
                       ...mapSnaps.map((snap) => Marker(
