@@ -149,7 +149,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
         // 0. Fetch location if dropping on map
         double? lat;
         double? lng;
-        if (_dropOnMap) {
+        if (_dropOnMap || _postToLocal) {
           bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
           if (serviceEnabled) {
             LocationPermission permission = await Geolocator.checkPermission();
@@ -176,8 +176,8 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
             isVideo: isVideo,
             friendUids: friendUids,
             groups: selectedGroups,
-            lat: lat,
-            lng: lng,
+            lat: _dropOnMap ? lat : null,
+            lng: _dropOnMap ? lng : null,
             isFrontCamera: isFrontCamera,
           );
         }
@@ -214,6 +214,61 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
         );
       }
     });
+  }
+
+  Widget _buildCircularItem({
+    required String emoji,
+    required String label,
+    required bool isSelected,
+    required VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: isSelected ? SetlogColors.momentoPink.withOpacity(0.15) : SetlogColors.authSurface,
+                  child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                ),
+                if (isSelected)
+                  Positioned(
+                    bottom: -2,
+                    right: -2,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(CupertinoIcons.checkmark_alt_circle_fill, color: SetlogColors.momentoPink, size: 18),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: 52,
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12, 
+                  fontWeight: FontWeight.w600,
+                  color: onTap == null ? Colors.grey : SetlogColors.collectionsHomeTextPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -258,228 +313,150 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
               : ListView(
                   padding: const EdgeInsets.only(bottom: 100),
                   children: [
-                    // Compact map toggles row
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Post to Local Map chip
+                          const Text('GROUPS & MAP', style: TextStyle(color: SetlogColors.collectionsHomeTextSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
                           GestureDetector(
-                            onTap: () => setState(() {
-                              _postToLocal = !_postToLocal;
-                              if (_postToLocal) _dropOnMap = true;
-                            }),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _postToLocal ? SetlogColors.momentoPink : Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: _postToLocal ? SetlogColors.momentoPink : SetlogColors.authStrokeSoft,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text('🌍', style: const TextStyle(fontSize: 14)),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Local Map',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: _postToLocal ? Colors.white : SetlogColors.collectionsHomeTextPrimary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          // Drop on Map chip
-                          GestureDetector(
-                            onTap: _postToLocal ? null : () => setState(() => _dropOnMap = !_dropOnMap),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _dropOnMap ? SetlogColors.momentoPink : Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: _dropOnMap ? SetlogColors.momentoPink : SetlogColors.authStrokeSoft,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text('📍', style: const TextStyle(fontSize: 14)),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Drop on Map',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: _dropOnMap ? Colors.white : SetlogColors.collectionsHomeTextPrimary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Info button
-                          GestureDetector(
-                            onTap: () => showDialog(
-                              context: context,
-                              builder: (_) => AlertDialog(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                title: const Text('Map Options', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-                                content: const Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('🌍 ', style: TextStyle(fontSize: 18)),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text('Local Map', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                                              SizedBox(height: 2),
-                                              Text('Makes this snap visible to anyone who is physically nearby. Anyone in the area can discover and view it.', style: TextStyle(fontSize: 13, color: Colors.black54)),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    SizedBox(height: 16),
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('📍 ', style: TextStyle(fontSize: 18)),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text('Drop on Map', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                                              SizedBox(height: 2),
-                                              Text('Pins this snap to your current location. Friends must physically walk to this spot to unlock and view it.', style: TextStyle(fontSize: 13, color: Colors.black54)),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text('Got it', style: TextStyle(color: SetlogColors.momentoPink, fontWeight: FontWeight.bold)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            child: Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                                border: Border.all(color: SetlogColors.authStrokeSoft),
-                              ),
-                              child: const Icon(CupertinoIcons.info, size: 15, color: SetlogColors.collectionsHomeTextSecondary),
+                            onTap: () {
+                              setState(() {
+                                bool allSelected = _selectedGroupIds.length == _groups.length && _postToLocal && _dropOnMap;
+                                if (allSelected) {
+                                  _selectedGroupIds.clear();
+                                  _postToLocal = false;
+                                  _dropOnMap = false;
+                                } else {
+                                  _selectedGroupIds.addAll(_groups.map((g) => g.id));
+                                  _postToLocal = true;
+                                  _dropOnMap = true;
+                                }
+                              });
+                            },
+                            child: Text(
+                              (_selectedGroupIds.length == _groups.length && _postToLocal && _dropOnMap) ? 'None' : 'All',
+                              style: const TextStyle(color: SetlogColors.momentoPink, fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
                       ),
                     ),
+                    SizedBox(
+                      height: 80,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _groups.length + 2,
+                        itemBuilder: (context, index) {
+                          // 0: Local Map
+                          if (index == 0) {
+                            return _buildCircularItem(
+                              emoji: '🌍',
+                              label: 'Local',
+                              isSelected: _postToLocal,
+                              onTap: () => setState(() {
+                                _postToLocal = !_postToLocal;
+                                if (_postToLocal) _dropOnMap = true;
+                              }),
+                            );
+                          }
+                          // 1: Drop on Map
+                          if (index == 1) {
+                            return _buildCircularItem(
+                              emoji: '📍',
+                              label: 'Drop',
+                              isSelected: _dropOnMap,
+                              onTap: _postToLocal ? null : () => setState(() => _dropOnMap = !_dropOnMap),
+                            );
+                          }
 
-
-                    if (_groups.isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-                        child: Text('GROUPS', style: TextStyle(color: SetlogColors.collectionsHomeTextSecondary, fontSize: 13, fontWeight: FontWeight.w600)),
+                          // 2+: Real Groups
+                          final group = _groups[index - 2];
+                          final isSelected = _selectedGroupIds.contains(group.id);
+                          
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                if (isSelected) _selectedGroupIds.remove(group.id);
+                                else _selectedGroupIds.add(group.id);
+                              });
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Stack(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 24,
+                                        backgroundColor: isSelected ? SetlogColors.momentoPink.withOpacity(0.15) : SetlogColors.authSurface,
+                                        backgroundImage: group.photoUrl != null ? NetworkImage(group.photoUrl!) : null,
+                                        child: group.photoUrl == null 
+                                            ? Icon(
+                                                CupertinoIcons.group_solid, 
+                                                color: isSelected ? SetlogColors.momentoPink : SetlogColors.brownPrimary,
+                                                size: 24,
+                                              )
+                                            : null,
+                                      ),
+                                      if (isSelected)
+                                        Positioned(
+                                          bottom: -2,
+                                          right: -2,
+                                          child: Container(
+                                            decoration: const BoxDecoration(
+                                              color: Colors.white,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(CupertinoIcons.checkmark_alt_circle_fill, color: SetlogColors.momentoPink, size: 18),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  SizedBox(
+                                    width: 52,
+                                    child: Text(
+                                      group.name,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                      SizedBox(
-                        height: 96,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _groups.length,
-                          itemBuilder: (context, index) {
-                            final group = _groups[index];
-                            final isSelected = _selectedGroupIds.contains(group.id);
-                            
-                            return GestureDetector(
+                    ),
+                    if (_friends.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('FRIENDS', style: TextStyle(color: SetlogColors.collectionsHomeTextSecondary, fontSize: 13, fontWeight: FontWeight.w600)),
+                            GestureDetector(
                               onTap: () {
                                 setState(() {
-                                  if (isSelected) _selectedGroupIds.remove(group.id);
-                                  else _selectedGroupIds.add(group.id);
+                                  if (_selectedFriendUids.length == _friends.length) {
+                                    _selectedFriendUids.clear();
+                                  } else {
+                                    _selectedFriendUids.addAll(_friends.map((f) => f.uid));
+                                  }
                                 });
                               },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Stack(
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 30,
-                                          backgroundColor: isSelected ? SetlogColors.momentoPink.withOpacity(0.15) : SetlogColors.authSurface,
-                                          backgroundImage: group.photoUrl != null ? NetworkImage(group.photoUrl!) : null,
-                                          child: group.photoUrl == null 
-                                              ? Icon(
-                                                  CupertinoIcons.group_solid, 
-                                                  color: isSelected ? SetlogColors.momentoPink : SetlogColors.brownPrimary,
-                                                  size: 28,
-                                                )
-                                              : null,
-                                        ),
-                                        if (isSelected)
-                                          Positioned(
-                                            bottom: 0,
-                                            right: 0,
-                                            child: Container(
-                                              decoration: const BoxDecoration(
-                                                color: Colors.white,
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: const Icon(CupertinoIcons.checkmark_circle_fill, color: SetlogColors.momentoPink, size: 22),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    SizedBox(
-                                      width: 68,
-                                      child: Text(
-                                        group.name,
-                                        textAlign: TextAlign.center,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                                          color: isSelected ? SetlogColors.momentoPink : SetlogColors.collectionsHomeTextPrimary,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              child: Text(
+                                _selectedFriendUids.length == _friends.length ? 'None' : 'All',
+                                style: const TextStyle(color: SetlogColors.momentoPink, fontSize: 13, fontWeight: FontWeight.bold),
                               ),
-                            );
-                          },
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                    if (_friends.isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
-                        child: Text('FRIENDS', style: TextStyle(color: SetlogColors.collectionsHomeTextSecondary, fontSize: 13, fontWeight: FontWeight.w600)),
                       ),
                       Container(
                         color: SetlogColors.authSurface,

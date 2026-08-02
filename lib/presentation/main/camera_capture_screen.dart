@@ -40,6 +40,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   final TextEditingController _captionController = TextEditingController();
   bool _showStreakCelebration = false;
   int _currentStreak = 0;
+  int _dualCameraTapCount = 0; // Tracks dual camera button states: 0=off, 1=on, 2=swapped
 
   @override
   void initState() {
@@ -263,15 +264,28 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   Future<void> _toggleDualCamera() async {
     HapticFeedback.mediumImpact();
-    if (_isDualCamera) {
-      // Turning off dual — dispose PiP camera
-      await _pipCameraController?.dispose();
-      _pipCameraController = null;
-      if (mounted) setState(() { _isDualCamera = false; _isPipCameraInitialized = false; });
-    } else {
-      // Turning on dual — init the opposite camera for PiP
+    if (!_isDualCamera) {
+      // 1st Tap: Turn on dual camera
+      _dualCameraTapCount = 1;
       setState(() => _isDualCamera = true);
       _initPipCamera();
+    } else {
+      if (_dualCameraTapCount == 1) {
+        // 2nd Tap: Swap cameras
+        _dualCameraTapCount = 2;
+        await _switchCamera();
+      } else {
+        // 3rd Tap: Turn off dual camera
+        _dualCameraTapCount = 0;
+        await _pipCameraController?.dispose();
+        _pipCameraController = null;
+        if (mounted) {
+          setState(() {
+            _isDualCamera = false;
+            _isPipCameraInitialized = false;
+          });
+        }
+      }
     }
   }
 
@@ -510,11 +524,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                           label: 'Flash',
                           onTap: _toggleFlash,
                         ),
-                        _buildToolbarItem(
-                          icon: CupertinoIcons.rectangle_on_rectangle_angled,
-                          label: 'Dual Cam',
-                          onTap: _toggleDualCamera,
-                        ),
+                        if (Platform.isIOS)
+                          _buildToolbarItem(
+                            icon: CupertinoIcons.rectangle_on_rectangle_angled,
+                            label: 'Dual Cam',
+                            onTap: _toggleDualCamera,
+                          ),
                       ],
                     ),
                   ),

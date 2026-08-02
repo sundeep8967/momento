@@ -36,7 +36,7 @@ class SetlogColors {
   static const Color authButter = Color(0xFFFFD6E7); // pastel pink-butter
 
   // --- Main App / Collections Colors ---
-  static const Color collectionsHomeBackground     = Color(0xFFFDF4F8); // warm pinkish white
+  static const Color collectionsHomeBackground     = Color(0xFFFFFFFF); // clean white
   static const Color collectionsHomeSurface        = CupertinoColors.systemBackground;
   static const Color collectionsHomeSurfacePressed = momentoPinkSurface;
   static const Color collectionsHomeTextPrimary    = CupertinoColors.label;
