@@ -50,6 +50,9 @@ final snapRepositoryProvider = Provider<SnapRepository>((ref) {
   return SnapRepository._internal();
 });
 
+// Tracks UIDs and Group names currently being sent a snap for UI loading states
+final sendingSnapsProvider = StateProvider<Set<String>>((ref) => <String>{});
+
 final groupedInboxStreamProvider = StreamProvider<List<List<DirectSnap>>>((ref) {
   final snapRepo = ref.watch(snapRepositoryProvider);
   final uid = FirebaseAuth.instance.currentUser?.uid;

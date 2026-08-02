@@ -123,26 +123,23 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
     final snapRepo = ref.read(snapRepositoryProvider);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
+    final sendingNotifier = ref.read(sendingSnapsProvider.notifier);
+
+    // Add selected users/groups to the sending state
+    final sendingIds = {
+      ...friendUids,
+      ...selectedGroups.map((g) => g.id),
+    };
+    
+    if (sendingIds.isNotEmpty) {
+      sendingNotifier.state = {
+        ...sendingNotifier.state,
+        ...sendingIds,
+      };
+    }
+
     // Immediately return to Home Screen
     context.go('/main');
-
-    // Show persistent "Sending..." snackbar — it stays until we explicitly dismiss it
-    scaffoldMessenger.showSnackBar(
-      const SnackBar(
-        content: Row(
-          children: [
-            SizedBox(
-              width: 16, height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-            ),
-            SizedBox(width: 12),
-            Text('Sending...', style: TextStyle(color: Colors.white)),
-          ],
-        ),
-        backgroundColor: SetlogColors.brownPrimary,
-        duration: Duration(days: 1), // effectively permanent until dismissed
-      ),
-    );
     
     // Run the heavy lifting in the background
     Future.microtask(() async {
@@ -199,20 +196,27 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
           );
         }
 
-        // Dismiss "Sending..." and show "Delivered ✓"
-        scaffoldMessenger.hideCurrentSnackBar();
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(
-            content: Text('Delivered ✓', style: TextStyle(color: Colors.white)),
-            backgroundColor: SetlogColors.authTerminalAccent,
-            duration: Duration(seconds: 3),
-          ),
-        );
+        // Show success snackbar only for local/map drops if no friends were selected
+        if (sendingIds.isEmpty && (_postToLocal || _dropOnMap)) {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(
+              content: Text('Posted to map ✓', style: TextStyle(color: Colors.white)),
+              backgroundColor: SetlogColors.authTerminalAccent,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
       } catch (e) {
-        scaffoldMessenger.hideCurrentSnackBar();
         scaffoldMessenger.showSnackBar(
           SnackBar(content: Text('Failed to send: $e'), backgroundColor: Colors.redAccent),
         );
+      } finally {
+        // Remove from sending state
+        if (sendingIds.isNotEmpty) {
+          sendingNotifier.state = {
+            ...sendingNotifier.state,
+          }..removeWhere((id) => sendingIds.contains(id));
+        }
       }
     });
   }
@@ -377,6 +381,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                                       _selectedGroupIds.add(group.id);
                                     }
                                   }),
+                                ),
                               );
                             }).toList(),
                           ],

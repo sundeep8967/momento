@@ -29,6 +29,7 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
     final snapRepo = ref.read(snapRepositoryProvider);
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
     final inboxAsyncValue = ref.watch(groupedInboxStreamProvider);
+    final sendingIds = ref.watch(sendingSnapsProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
@@ -180,6 +181,10 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                       userSnaps.sort((a, b) => b.timestamp.compareTo(a.timestamp));
                       final snap = userSnaps.first;
                       final isMe = snap.senderUid == currentUid;
+                      // Use groupName if it exists, otherwise the senderUid of the snap.
+                      final targetId = snap.groupName ?? snap.senderUid;
+                      final isSending = sendingIds.contains(targetId);
+
                       final unreadCount = userSnaps.where((s) => !s.isViewed).length;
                       // isNew = there are unread snaps. For self-snaps (isMe) we still want to open them.
                       final isNew = unreadCount > 0;
@@ -189,9 +194,24 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                           : isMe
                               ? '${snap.senderUsername} (Myself)'
                               : snap.senderUsername;
+                      
+                      // For self-sent snaps where receiver is the same as sender (actual self-snaps)
+                      final displayFinalName = displayName;
+
+                      String displayStatus;
+                      Color displayStatusColor;
+                      
+                      if (isSending) {
+                        displayStatus = 'Sending...';
+                        displayStatusColor = Colors.blue; // or any sending color
+                      } else {
+                        displayStatus = isNew ? (isMe ? 'OPEN MOMENTO • TAP TO VIEW' : 'NEW MOMENTO • TAP TO VIEW') : (isMe ? 'Delivered' : 'Opened');
+                        displayStatusColor = isNew ? SetlogColors.momentoPink : const Color(0xFF666666);
+                      }
 
                       return GestureDetector(
                         onTap: () {
+                          if (isSending) return; // disable tap while sending
                           if (isNew) {
                             final unreadSnaps = userSnaps.where((s) => !s.isViewed).toList();
                             if (unreadSnaps.isNotEmpty) {
@@ -200,16 +220,17 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                           }
                         },
                         child: ChatCardItem(
-                          name: displayName,
-                          status: isNew ? (isMe ? 'OPEN MOMENTO • TAP TO VIEW' : 'NEW MOMENTO • TAP TO VIEW') : (isMe ? 'Delivered' : 'Opened'),
-                          statusColor: isNew ? SetlogColors.momentoPink : const Color(0xFF666666),
+                          name: displayFinalName,
+                          status: displayStatus,
+                          statusColor: displayStatusColor,
                           time: timeago.format(snap.timestamp, locale: 'en_short').toUpperCase(),
                           streak: unreadCount > 0 ? unreadCount : null,
-                          avatarSeed: displayName,
+                          avatarSeed: displayFinalName,
                           isOpened: !isNew && !isMe,
                           isDelivered: !isNew && isMe,
-                          isNew: isNew,
+                          isNew: isNew && !isSending,
                           isVideo: snap.isVideo,
+                          isSending: isSending,
                         ),
                       );
                     },
@@ -399,8 +420,9 @@ class ChatCardItem extends StatelessWidget {
   final bool isOpened;
   final bool isDelivered;
   final bool isNew;
-  final bool isVideo;
   final bool isChatReceived;
+  final bool isVideo;
+  final bool isSending;
 
   const ChatCardItem({
     super.key,
@@ -414,8 +436,9 @@ class ChatCardItem extends StatelessWidget {
     this.isOpened = false,
     this.isDelivered = false,
     this.isNew = false,
-    this.isVideo = false,
     this.isChatReceived = false,
+    this.isVideo = false,
+    this.isSending = false,
   });
 
   @override
@@ -568,7 +591,16 @@ class ChatCardItem extends StatelessWidget {
   }
 
   Widget _buildStatusIndicator() {
-    if (isNew) {
+    if (isSending) {
+      return const SizedBox(
+        width: 14,
+        height: 14,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Colors.blue,
+        ),
+      );
+    } else if (isNew) {
       return Container(
         width: 14,
         height: 14,
