@@ -122,10 +122,25 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
     final snapRepo = ref.read(snapRepositoryProvider);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-    // Immediately return to Home Screen for that snappy iOS feel!
+    // Immediately return to Home Screen
     context.go('/main');
+
+    // Show persistent "Sending..." snackbar — it stays until we explicitly dismiss it
     scaffoldMessenger.showSnackBar(
-      const SnackBar(content: Text('Sending Momento...'), backgroundColor: SetlogColors.collectionsHomeBackground, duration: Duration(seconds: 2))
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16, height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('Sending...', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        backgroundColor: SetlogColors.brownPrimary,
+        duration: Duration(days: 1), // effectively permanent until dismissed
+      ),
     );
     
     // Run the heavy lifting in the background
@@ -183,12 +198,19 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
           );
         }
 
+        // Dismiss "Sending..." and show "Delivered ✓"
+        scaffoldMessenger.hideCurrentSnackBar();
         scaffoldMessenger.showSnackBar(
-          const SnackBar(content: Text('Momento sent!'), backgroundColor: SetlogColors.authTerminalAccent)
+          const SnackBar(
+            content: Text('Delivered ✓', style: TextStyle(color: Colors.white)),
+            backgroundColor: SetlogColors.authTerminalAccent,
+            duration: Duration(seconds: 3),
+          ),
         );
       } catch (e) {
+        scaffoldMessenger.hideCurrentSnackBar();
         scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('Failed to send: $e'), backgroundColor: Colors.redAccent)
+          SnackBar(content: Text('Failed to send: $e'), backgroundColor: Colors.redAccent),
         );
       }
     });
