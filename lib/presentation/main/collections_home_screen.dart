@@ -9,7 +9,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../avatar_kit/avatar_widget.dart';
-import '../../avatar_kit/momento_avatar.dart';
 import '../../data/friends_repository.dart';
 import 'dart:convert';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -27,6 +26,7 @@ class CollectionsHomeScreen extends ConsumerStatefulWidget {
 class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
   @override
   Widget build(BuildContext context) {
+    final myProfile = ref.watch(myProfileProvider).value;
     final snapRepo = ref.read(snapRepositoryProvider);
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
     final inboxAsyncValue = ref.watch(groupedInboxStreamProvider);
@@ -68,47 +68,27 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Left Avatar Profile Button — shows user's real DP
                         GestureDetector(
                           onTap: () => context.push('/main/profile'),
-                          child: FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                            future: currentUid != null
-                                ? FirebaseFirestore.instance.collection('users').doc(currentUid).get()
-                                : Future.value(null as dynamic),
-                            builder: (context, snap) {
-                              final photoUrl = snap.data?.data()?['photoUrl'] as String? ?? '';
-                              UserProfile? profile;
-                              if (photoUrl.isNotEmpty) {
-                                profile = UserProfile(
-                                  uid: currentUid ?? '',
-                                  username: '',
-                                  displayName: '',
-                                  photoUrl: photoUrl,
-                                );
-                              }
-                              return Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFDF4F8),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: SetlogColors.momentoPinkBorder, width: 2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: SetlogColors.momentoPink.withValues(alpha: 0.15),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFDF4F8),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: SetlogColors.momentoPinkBorder, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: SetlogColors.momentoPink.withValues(alpha: 0.15),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
                                 ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(14),
-                                  child: profile?.avatar != null
-                                      ? AvatarWidget(avatar: profile!.avatar!, size: 48)
-                                      : Image.asset('assets/app_icon.png', fit: BoxFit.cover),
-                                ),
-                              );
-                            },
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: Image.asset('assets/app_icon.png', fit: BoxFit.cover),
+                            ),
                           ),
                         ),
 
@@ -262,7 +242,8 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                           statusColor: displayStatusColor,
                           time: timeago.format(snap.timestamp, locale: 'en_short').toUpperCase(),
                           streak: finalStreakCount,
-                          avatarSeed: displayFinalName,
+                          avatarSeed: snap.groupName ?? snap.senderUid,
+                          avatarUrl: isMe ? myProfile?.photoUrl : null,
                           isOpened: !isNew && !isMe,
                           isDelivered: !isNew && isMe,
                           isNew: isNew && !isSending,
@@ -512,31 +493,6 @@ class ChatCardItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    MomentoAvatar displayAvatar = MomentoAvatar.fromSeed(avatarSeed);
-    if (avatarUrl != null && avatarUrl!.startsWith('avatar:')) {
-      try {
-        final map = jsonDecode(avatarUrl!.substring(7));
-        displayAvatar = MomentoAvatar(
-          seed: map['seed'] ?? avatarSeed,
-          skinColor: map['skinColor'] ?? 'ffdbb4',
-          top: map['top'] ?? 'shortHair',
-          hairColor: map['hairColor'] ?? '2c1b18',
-          hatColor: map['hatColor'] ?? '2c1b18',
-          accessories: map['accessories'] ?? 'none',
-          accessoriesColor: map['accessoriesColor'] ?? '262e33',
-          facialHair: map['facialHair'] ?? 'none',
-          facialHairColor: map['facialHairColor'] ?? '2c1b18',
-          clothes: map['clothes'] ?? 'blazerAndShirt',
-          clothesColor: map['clothesColor'] ?? 'ffffff',
-          clothesGraphic: map['clothesGraphic'] ?? 'none',
-          eyes: map['eyes'] ?? 'default',
-          eyebrows: map['eyebrows'] ?? 'default',
-          mouth: map['mouth'] ?? 'default',
-          bgScene: map['bgScene'] ?? 0,
-        );
-      } catch (_) {}
-    }
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       padding: const EdgeInsets.all(14),
@@ -574,8 +530,9 @@ class ChatCardItem extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(isNew ? 15 : 18),
-              child: AvatarWidget(
-                avatar: displayAvatar,
+              child: MomentoProfileAvatar(
+                photoUrl: avatarUrl,
+                seed: avatarSeed,
                 size: 56,
               ),
             ),

@@ -8,7 +8,6 @@ import 'dart:math' as math;
 import '../../theme/colors.dart';
 import '../../data/match_repository.dart';
 import '../../data/friends_repository.dart';
-import '../../avatar_kit/momento_avatar.dart';
 import '../../avatar_kit/avatar_widget.dart';
 
 import '../../theme/smoking_mode_provider.dart';
@@ -325,8 +324,9 @@ class _TeaScreenState extends ConsumerState<TeaScreen> {
                       )
                     ]
                   ),
-                  child: AvatarWidget(
-                    avatar: MomentoAvatar.fromSeed(uid),
+                  child: MomentoProfileAvatar(
+                    photoUrl: null,
+                    seed: uid,
                     size: 50,
                     showBorder: false,
                   ),
@@ -398,8 +398,9 @@ class _TeaScreenState extends ConsumerState<TeaScreen> {
           ),
           child: Column(
             children: [
-              AvatarWidget(
-                avatar: _matchedUser?.avatar ?? MomentoAvatar.fromSeed(_matchedUserId ?? ''),
+              MomentoProfileAvatar(
+                photoUrl: _matchedUser?.photoUrl,
+                seed: _matchedUserId ?? '',
                 size: 100,
               ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.2),
               

@@ -169,6 +169,24 @@ final friendshipsStreamProvider = StreamProvider<List<Friendship>>((ref) {
       .map((snap) => snap.docs.map((d) => Friendship.fromFirestore(d.id, d.data())).toList());
 });
 
+final myProfileProvider = StreamProvider<UserProfile?>((ref) {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return Stream.value(null);
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .snapshots()
+      .map((doc) => doc.exists ? UserProfile.fromMap(doc.id, doc.data()!) : null);
+});
+
+final userProfileProvider = FutureProvider.family<UserProfile?, String>((ref, uid) async {
+  if (uid.isEmpty) return null;
+  // If it's the current user, we can get it from myProfileProvider (or fetch directly)
+  final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+  if (!doc.exists) return null;
+  return UserProfile.fromMap(doc.id, doc.data()!);
+});
+
 class FriendsRepository {
   // Keep instance for legacy compatibility during migration
   static final FriendsRepository instance = FriendsRepository._internal();

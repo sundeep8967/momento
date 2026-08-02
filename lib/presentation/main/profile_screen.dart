@@ -12,7 +12,6 @@ import '../../data/cloudinary_service.dart';
 import '../../data/local_cache.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../avatar_kit/avatar_widget.dart';
-import '../../avatar_kit/momento_avatar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/smoking_mode_provider.dart';
 
@@ -223,8 +222,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       shape: BoxShape.circle,
                                     ),
                                     padding: const EdgeInsets.all(3),
-                                    child: AvatarWidget(
-                                      avatar: MomentoAvatar.fromSeed(FirebaseAuth.instance.currentUser?.uid ?? ''),
+                                    child: MomentoProfileAvatar(
+                                      photoUrl: _photoUrl,
+                                      seed: FirebaseAuth.instance.currentUser?.uid ?? '',
                                       size: 100,
                                       showBorder: false,
                                     ),

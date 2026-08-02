@@ -34,6 +34,27 @@ CustomTransitionPage<void> _fadeRoute(GoRouterState state, Widget child) {
   );
 }
 
+
+CustomTransitionPage<void> _fluidRoute(GoRouterState state, Widget child) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: CurveTween(curve: Curves.easeOutCirc).animate(animation),
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.0, 0.05),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+          child: child,
+        ),
+      );
+    },
+    transitionDuration: const Duration(milliseconds: 400),
+  );
+}
+
 final GoRouter appRouter = GoRouter(
   initialLocation: '/splash',
   routes: [
@@ -50,27 +71,27 @@ final GoRouter appRouter = GoRouter(
       routes: [
         GoRoute(
           path: '/auth/landing',
-          builder: (context, state) => const AuthLandingScreen(),
+          pageBuilder: (context, state) => _fluidRoute(state, const AuthLandingScreen()),
         ),
         GoRoute(
           path: '/auth/email',
-          builder: (context, state) => const AuthEmailScreen(),
+          pageBuilder: (context, state) => _fluidRoute(state, const AuthEmailScreen()),
         ),
         GoRoute(
           path: '/auth/username',
-          builder: (context, state) => const UsernameSetupScreen(),
+          pageBuilder: (context, state) => _fluidRoute(state, const UsernameSetupScreen()),
         ),
         GoRoute(
           path: '/auth/avatar-setup',
-          builder: (context, state) => const AvatarSetupScreen(),
+          pageBuilder: (context, state) => _fluidRoute(state, const AvatarSetupScreen()),
         ),
         GoRoute(
           path: '/auth/permissions',
-          builder: (context, state) => const PermissionsScreen(),
+          pageBuilder: (context, state) => _fluidRoute(state, const PermissionsScreen()),
         ),
         GoRoute(
           path: '/auth/onboarding',
-          builder: (context, state) => const OnboardingScreen(),
+          pageBuilder: (context, state) => _fluidRoute(state, const OnboardingScreen()),
         ),
       ],
     ),
@@ -78,58 +99,58 @@ final GoRouter appRouter = GoRouter(
     // ── Main App ──
     GoRoute(
       path: '/main',
-      builder: (context, state) => const CollectionsHomeScreen(),
+      pageBuilder: (context, state) => _fluidRoute(state, const CollectionsHomeScreen()),
       routes: [
         GoRoute(
           path: 'collections',
-          builder: (context, state) => const CollectionsHomeScreen(),
+          pageBuilder: (context, state) => _fluidRoute(state, const CollectionsHomeScreen()),
         ),
         GoRoute(
           path: 'camera',
-          builder: (context, state) => const CameraCaptureScreen(),
+          pageBuilder: (context, state) => _fluidRoute(state, const CameraCaptureScreen()),
         ),
         GoRoute(
           path: 'send_to',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             final extra = state.extra as Map<String, dynamic>;
-            return SendToScreen(
+            return _fluidRoute(state, SendToScreen(
               mediaPath: extra['mediaPath'] as String,
               isVideo: extra['isVideo'] as bool,
               caption: extra['caption'] as String?,
-            );
+            ));
           },
         ),
         GoRoute(
           path: 'snap_viewer',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             final snaps = state.extra as List<DirectSnap>;
-            return SnapViewerScreen(snaps: snaps);
+            return _fluidRoute(state, SnapViewerScreen(snaps: snaps));
           },
         ),
         GoRoute(
           path: 'daylog/:logId',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             final logId = state.pathParameters['logId']!;
             final isClosed = state.uri.queryParameters['closed'] == 'true';
-            return OwnLogViewerScreen(logId: logId, isClosed: isClosed);
+            return _fluidRoute(state, OwnLogViewerScreen(logId: logId, isClosed: isClosed));
           },
         ),
         GoRoute(
           path: 'profile',
-          builder: (context, state) => const ProfileScreen(),
+          pageBuilder: (context, state) => _fluidRoute(state, const ProfileScreen()),
         ),
         GoRoute(
           path: 'tea',
-          builder: (context, state) => const TeaScreen(),
+          pageBuilder: (context, state) => _fluidRoute(state, const TeaScreen()),
         ),
         GoRoute(
           path: 'avatar-customizer',
           // Redirected to avatar-kit — API-based screen removed, using offline SDK only
-          builder: (context, state) => const AvatarKitScreen(),
+          pageBuilder: (context, state) => _fluidRoute(state, const AvatarKitScreen()),
         ),
         GoRoute(
           path: 'avatar-kit',
-          builder: (context, state) => const AvatarKitScreen(),
+          pageBuilder: (context, state) => _fluidRoute(state, const AvatarKitScreen()),
         ),
       ],
     ),
@@ -137,39 +158,39 @@ final GoRouter appRouter = GoRouter(
     // ── Direct Messaging ──
     GoRoute(
       path: '/chat/:uid',
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final uid = state.pathParameters['uid']!;
-        return ChatScreen(uid: uid);
+        return _fluidRoute(state, ChatScreen(uid: uid));
       },
     ),
 
     // ── Snap Map ──
     GoRoute(
       path: '/map',
-      builder: (context, state) => const SnapMapScreen(),
+      pageBuilder: (context, state) => _fluidRoute(state, const SnapMapScreen()),
     ),
 
     // ── Friends & Social ──
     GoRoute(
       path: '/friends',
-      builder: (context, state) => const FriendsScreen(),
+      pageBuilder: (context, state) => _fluidRoute(state, const FriendsScreen()),
       routes: [
         GoRoute(
           path: 'create_group',
-          builder: (context, state) => const CreateGroupScreen(),
+          pageBuilder: (context, state) => _fluidRoute(state, const CreateGroupScreen()),
         ),
         GoRoute(
           path: 'log/:shareId',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             final shareId = state.pathParameters['shareId']!;
-            return FriendLogViewerScreen(shareId: shareId);
+            return _fluidRoute(state, FriendLogViewerScreen(shareId: shareId));
           },
         ),
         GoRoute(
           path: 'add/:username',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             final initialSearch = state.pathParameters['username'];
-            return FriendsScreen(initialSearch: initialSearch);
+            return _fluidRoute(state, FriendsScreen(initialSearch: initialSearch));
           },
         ),
       ],

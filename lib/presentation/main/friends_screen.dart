@@ -7,7 +7,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../../avatar_kit/avatar_widget.dart';
-import '../../avatar_kit/momento_avatar.dart';
 
 class FriendsScreen extends StatefulWidget {
   final String? initialSearch;
@@ -318,8 +317,9 @@ class _FriendsScreenState extends State<FriendsScreen>
               shape: BoxShape.circle,
               border: Border.all(color: Colors.black.withOpacity(0.05), width: 1),
             ),
-            child: AvatarWidget(
-              avatar: MomentoAvatar.fromSeed(user.uid),
+            child: MomentoProfileAvatar(
+              photoUrl: user.photoUrl,
+              seed: user.uid,
               size: 44,
               showBorder: false,
             ),
@@ -407,8 +407,9 @@ class _FriendsScreenState extends State<FriendsScreen>
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.black.withOpacity(0.05), width: 1),
                 ),
-                child: AvatarWidget(
-                  avatar: MomentoAvatar.fromSeed(requesterUid),
+                child: MomentoProfileAvatar(
+                  photoUrl: null,
+                  seed: requesterUid,
                   size: 44,
                   showBorder: false,
                 ),
@@ -512,8 +513,9 @@ class _FriendsScreenState extends State<FriendsScreen>
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.black.withOpacity(0.05), width: 1),
                 ),
-                child: AvatarWidget(
-                  avatar: MomentoAvatar.fromSeed(f.uid),
+                child: MomentoProfileAvatar(
+                  photoUrl: f.photoUrl,
+                  seed: f.uid,
                   size: 44,
                   showBorder: false,
                 ),

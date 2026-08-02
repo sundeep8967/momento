@@ -10,7 +10,6 @@ import '../../theme/colors.dart';
 import '../../data/friends_repository.dart';
 import '../../data/encryption_service.dart';
 import '../../avatar_kit/avatar_widget.dart';
-import '../../avatar_kit/momento_avatar.dart';
 
 class ChatScreen extends StatefulWidget {
   final String uid;
@@ -61,10 +60,10 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         title: Row(
           children: [
-            AvatarWidget(
-              avatar: _userProfile?.avatar ?? MomentoAvatar.fromSeed(widget.uid),
+            MomentoProfileAvatar(
+              photoUrl: _userProfile?.photoUrl,
+              seed: widget.uid,
               size: 36,
-              showBorder: false,
             ),
             const SizedBox(width: 12),
             Text(
