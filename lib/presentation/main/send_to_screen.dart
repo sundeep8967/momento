@@ -258,42 +258,79 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
               : ListView(
                   padding: const EdgeInsets.only(bottom: 100),
                   children: [
-                    Container(
-                      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: SetlogColors.authStrokeSoft),
-                      ),
-                      child: Column(
+                    // Compact map toggles row
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                      child: Row(
                         children: [
-                          SwitchListTile(
-                            title: const Text('🌍 Post to Local Map', style: TextStyle(fontWeight: FontWeight.bold, color: SetlogColors.collectionsHomeTextPrimary)),
-                            subtitle: const Text('Make this public for anyone nearby to find!', style: TextStyle(fontSize: 12, color: SetlogColors.collectionsHomeTextSecondary)),
-                            activeColor: SetlogColors.momentoPink,
-                            value: _postToLocal,
-                            onChanged: (val) {
-                              setState(() {
-                                _postToLocal = val;
-                                if (val) _dropOnMap = true; // Local snaps must be dropped on map
-                              });
-                            },
+                          // Post to Local Map chip
+                          GestureDetector(
+                            onTap: () => setState(() {
+                              _postToLocal = !_postToLocal;
+                              if (_postToLocal) _dropOnMap = true;
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _postToLocal ? SetlogColors.momentoPink : Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: _postToLocal ? SetlogColors.momentoPink : SetlogColors.authStrokeSoft,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('🌍', style: const TextStyle(fontSize: 14)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Local Map',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _postToLocal ? Colors.white : SetlogColors.collectionsHomeTextPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          const Divider(height: 1),
-                          SwitchListTile(
-                            title: const Text('📍 Drop on Map', style: TextStyle(fontWeight: FontWeight.bold, color: SetlogColors.collectionsHomeTextPrimary)),
-                            subtitle: const Text('Friends must physically walk here to unlock it!', style: TextStyle(fontSize: 12, color: SetlogColors.collectionsHomeTextSecondary)),
-                            activeColor: SetlogColors.momentoPink,
-                            value: _dropOnMap,
-                            onChanged: _postToLocal ? null : (val) {
-                              setState(() {
-                                _dropOnMap = val;
-                              });
-                            },
+                          const SizedBox(width: 10),
+                          // Drop on Map chip
+                          GestureDetector(
+                            onTap: _postToLocal ? null : () => setState(() => _dropOnMap = !_dropOnMap),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _dropOnMap ? SetlogColors.momentoPink : Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: _dropOnMap ? SetlogColors.momentoPink : SetlogColors.authStrokeSoft,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('📍', style: const TextStyle(fontSize: 14)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Drop on Map',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _dropOnMap ? Colors.white : SetlogColors.collectionsHomeTextPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
+
                     if (_groups.isNotEmpty) ...[
                       const Padding(
                         padding: EdgeInsets.fromLTRB(20, 16, 20, 8),

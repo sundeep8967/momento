@@ -7,8 +7,10 @@ import 'package:momento/theme/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../avatar_kit/avatar_widget.dart';
 import '../../avatar_kit/momento_avatar.dart';
+import '../../data/friends_repository.dart';
 import 'dart:convert';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../theme/colors.dart';
@@ -68,31 +70,47 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Left 3D Avatar Profile Button
+                        // Left Avatar Profile Button — shows user's real DP
                         GestureDetector(
                           onTap: () => context.push('/main/profile'),
-                          child: Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFDF4F8),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: SetlogColors.momentoPinkBorder, width: 2),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: SetlogColors.momentoPink.withValues(alpha: 0.15),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
+                          child: FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                            future: currentUid != null
+                                ? FirebaseFirestore.instance.collection('users').doc(currentUid).get()
+                                : Future.value(null as dynamic),
+                            builder: (context, snap) {
+                              final photoUrl = snap.data?.data()?['photoUrl'] as String? ?? '';
+                              UserProfile? profile;
+                              if (photoUrl.isNotEmpty) {
+                                profile = UserProfile(
+                                  uid: currentUid ?? '',
+                                  username: '',
+                                  displayName: '',
+                                  photoUrl: photoUrl,
+                                );
+                              }
+                              return Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFDF4F8),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: SetlogColors.momentoPinkBorder, width: 2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: SetlogColors.momentoPink.withValues(alpha: 0.15),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: Image.asset(
-                                'assets/app_icon.png',
-                                fit: BoxFit.cover,
-                              ),
-                            ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: profile?.avatar != null
+                                      ? AvatarWidget(avatar: profile!.avatar!, size: 48)
+                                      : Image.asset('assets/app_icon.png', fit: BoxFit.cover),
+                                ),
+                              );
+                            },
                           ),
                         ),
 
@@ -182,8 +200,9 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                       userSnaps.sort((a, b) => b.timestamp.compareTo(a.timestamp));
                       final snap = userSnaps.first;
                       final isMe = snap.senderUid == currentUid;
-                      final unreadCount = userSnaps.where((s) => !s.isViewed && s.senderUid != currentUid).length;
-                      final isNew = unreadCount > 0 && !isMe;
+                      final unreadCount = userSnaps.where((s) => !s.isViewed).length;
+                      // isNew = there are unread snaps. For self-snaps (isMe) we still want to open them.
+                      final isNew = unreadCount > 0;
                       final snapColor = snap.isVideo ? const Color(0xFFAB47BC) : SetlogColors.momentoPink;
                       final displayName = snap.groupName != null && snap.groupName!.isNotEmpty
                           ? snap.groupName!
@@ -194,7 +213,7 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                       return GestureDetector(
                         onTap: () {
                           if (isNew) {
-                            final unreadSnaps = userSnaps.where((s) => !s.isViewed && s.senderUid != currentUid).toList();
+                            final unreadSnaps = userSnaps.where((s) => !s.isViewed).toList();
                             if (unreadSnaps.isNotEmpty) {
                               context.push('/main/snap_viewer', extra: unreadSnaps);
                             }
@@ -202,13 +221,13 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                         },
                         child: ChatCardItem(
                           name: displayName,
-                          status: isNew ? 'NEW MOMENTO • TAP TO VIEW' : (isMe ? 'Delivered' : 'Opened'),
+                          status: isNew ? (isMe ? 'OPEN MOMENTO • TAP TO VIEW' : 'NEW MOMENTO • TAP TO VIEW') : (isMe ? 'Delivered' : 'Opened'),
                           statusColor: isNew ? SetlogColors.momentoPink : const Color(0xFF666666),
                           time: timeago.format(snap.timestamp, locale: 'en_short').toUpperCase(),
                           streak: unreadCount > 0 ? unreadCount : null,
                           avatarSeed: displayName,
                           isOpened: !isNew && !isMe,
-                          isDelivered: isMe,
+                          isDelivered: !isNew && isMe,
                           isNew: isNew,
                           isVideo: snap.isVideo,
                         ),

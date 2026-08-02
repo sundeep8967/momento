@@ -23,6 +23,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _progressController;
   CameraController? _cameraController;
+  CameraController? _pipCameraController; // Back camera for dual-camera PiP
+  bool _isPipCameraInitialized = false;
   bool _isRecording = false;
   bool _isCameraInitialized = false;
   bool _isSaving = false;
@@ -77,6 +79,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   void dispose() {
     _progressController.dispose();
     _cameraController?.dispose();
+    _pipCameraController?.dispose();
     _captionController.dispose();
     super.dispose();
   }
@@ -208,6 +211,13 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         await _cameraController!.setFlashMode(FlashMode.torch);
       }
       if (mounted) setState(() {});
+      // If dual mode is active, re-init PiP to the opposite lens
+      if (_isDualCamera) {
+        await _pipCameraController?.dispose();
+        _pipCameraController = null;
+        if (mounted) setState(() => _isPipCameraInitialized = false);
+        _initPipCamera();
+      }
     } catch (e) {
       debugPrint('Switch camera error: $e');
     }
@@ -225,9 +235,40 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     }
   }
 
-  void _toggleDualCamera() {
+  Future<void> _toggleDualCamera() async {
     HapticFeedback.mediumImpact();
-    setState(() => _isDualCamera = !_isDualCamera);
+    if (_isDualCamera) {
+      // Turning off dual — dispose PiP camera
+      await _pipCameraController?.dispose();
+      _pipCameraController = null;
+      if (mounted) setState(() { _isDualCamera = false; _isPipCameraInitialized = false; });
+    } else {
+      // Turning on dual — init the opposite camera for PiP
+      setState(() => _isDualCamera = true);
+      _initPipCamera();
+    }
+  }
+
+  Future<void> _initPipCamera() async {
+    try {
+      final cameras = await availableCameras();
+      // PiP always shows the OPPOSITE lens from the main camera
+      final pipLens = _isFrontCamera ? CameraLensDirection.back : CameraLensDirection.front;
+      final pipCamera = cameras.firstWhere(
+        (c) => c.lensDirection == pipLens,
+        orElse: () => cameras.first,
+      );
+      final ctrl = CameraController(pipCamera, ResolutionPreset.low, enableAudio: false);
+      await ctrl.initialize();
+      if (mounted) {
+        setState(() {
+          _pipCameraController = ctrl;
+          _isPipCameraInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('PiP camera init error: $e');
+    }
   }
 
   @override
@@ -298,14 +339,16 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                     child: Stack(
                       children: [
                         Positioned.fill(
-                          child: FittedBox(
-                            fit: BoxFit.cover,
-                            child: SizedBox(
-                              width: _cameraController!.value.previewSize?.height ?? 1,
-                              height: _cameraController!.value.previewSize?.width ?? 1,
-                              child: CameraPreview(_cameraController!),
-                            ),
-                          ),
+                          child: _isPipCameraInitialized && _pipCameraController != null
+                              ? FittedBox(
+                                  fit: BoxFit.cover,
+                                  child: SizedBox(
+                                    width: _pipCameraController!.value.previewSize?.height ?? 1,
+                                    height: _pipCameraController!.value.previewSize?.width ?? 1,
+                                    child: CameraPreview(_pipCameraController!),
+                                  ),
+                                )
+                              : const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
                         ),
                         Container(
                           color: SetlogColors.momentoPink.withOpacity(0.2),
@@ -390,49 +433,54 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
               // Record button
               Positioned(
-                bottom: 48,
+                bottom: 0,
                 left: 0,
                 right: 0,
-                child: Center(
-                  child: GestureDetector(
-                    onTap: _takePicture, // single tap for photo
-                    onLongPressStart: (_) => _startRecording(),
-                    onLongPressEnd: (_) => _stopRecording(),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox(
-                          width: 96,
-                          height: 96,
-                          child: AnimatedBuilder(
-                            animation: _progressController,
-                            builder: (context, child) {
-                              return CircularProgressIndicator(
-                                value: _progressController.value,
-                                color: SetlogColors.cameraTimerProgress,
-                                backgroundColor: Colors.white24,
-                                strokeWidth: 6,
-                              );
-                            },
-                          ),
-                        ),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: _isRecording ? 52 : 70,
-                          height: _isRecording ? 52 : 70,
-                          decoration: BoxDecoration(
-                            color: _isRecording ? SetlogColors.cameraTimerProgress : SetlogColors.momentoPink,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: SetlogColors.momentoPink.withOpacity(0.5),
-                                blurRadius: 16,
-                                spreadRadius: 2,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: _takePicture, // single tap for photo
+                        onLongPressStart: (_) => _startRecording(),
+                        onLongPressEnd: (_) => _stopRecording(),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            SizedBox(
+                              width: 96,
+                              height: 96,
+                              child: AnimatedBuilder(
+                                animation: _progressController,
+                                builder: (context, child) {
+                                  return CircularProgressIndicator(
+                                    value: _progressController.value,
+                                    color: SetlogColors.cameraTimerProgress,
+                                    backgroundColor: Colors.white24,
+                                    strokeWidth: 6,
+                                  );
+                                },
                               ),
-                            ],
-                          ),
+                            ),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: _isRecording ? 52 : 70,
+                              height: _isRecording ? 52 : 70,
+                              decoration: BoxDecoration(
+                                color: _isRecording ? SetlogColors.cameraTimerProgress : SetlogColors.momentoPink,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: SetlogColors.momentoPink.withOpacity(0.5),
+                                    blurRadius: 16,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -440,16 +488,21 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
               // Hint
               Positioned(
-                bottom: 158,
+                bottom: 0,
                 left: 0,
                 right: 0,
-                child: Center(
-                  child: AnimatedOpacity(
-                    opacity: _isRecording ? 0.0 : 1.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: const Text(
-                      'Tap for photo  ·  Hold to record',
-                      style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 134),
+                    child: Center(
+                      child: AnimatedOpacity(
+                        opacity: _isRecording ? 0.0 : 1.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: const Text(
+                          'Tap for photo  ·  Hold to record',
+                          style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -475,95 +528,100 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
               // Bottom Area: Frosted Caption Pill + Centered Pink Send Button
               Positioned(
-                bottom: 24,
+                bottom: 0,
                 left: 20,
                 right: 20,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Frosted Glass Capsule Caption Field
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(26),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                        child: Container(
-                          height: 52,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.35),
-                            borderRadius: BorderRadius.circular(26),
-                            border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _captionController,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  decoration: const InputDecoration(
-                                    hintText: 'Add a caption...',
-                                    hintStyle: TextStyle(color: Colors.white70, fontSize: 16),
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                  ),
-                                  autofocus: false,
-                                  textInputAction: TextInputAction.done,
-                                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Frosted Glass Capsule Caption Field
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(26),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                            child: Container(
+                              height: 52,
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.35),
+                                borderRadius: BorderRadius.circular(26),
+                                border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
                               ),
-                              const Icon(CupertinoIcons.smiley, color: Colors.white, size: 22),
-                            ],
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _captionController,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      decoration: const InputDecoration(
+                                        hintText: 'Add a caption...',
+                                        hintStyle: TextStyle(color: Colors.white70, fontSize: 16),
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                      ),
+                                      autofocus: false,
+                                      textInputAction: TextInputAction.done,
+                                    ),
+                                  ),
+                                  const Icon(CupertinoIcons.smiley, color: Colors.white, size: 22),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
+                        const SizedBox(height: 18),
 
-                    // Centered Primary Pink Send Button
-                    Center(
-                      child: GestureDetector(
-                        onTap: _saveClip,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
-                          decoration: BoxDecoration(
-                            color: SetlogColors.momentoPink,
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: [
-                              BoxShadow(
-                                color: SetlogColors.momentoPink.withOpacity(0.5),
-                                blurRadius: 16,
-                                spreadRadius: 2,
-                                offset: const Offset(0, 4),
+                        // Centered Primary Pink Send Button
+                        Center(
+                          child: GestureDetector(
+                            onTap: _saveClip,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: SetlogColors.momentoPink,
+                                borderRadius: BorderRadius.circular(28),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: SetlogColors.momentoPink.withOpacity(0.5),
+                                    blurRadius: 16,
+                                    spreadRadius: 2,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Send',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.2,
-                                ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Send',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: -0.2,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Icon(
+                                    CupertinoIcons.paperplane_fill,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ],
                               ),
-                              SizedBox(width: 8),
-                              Icon(
-                                CupertinoIcons.paperplane_fill,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],
