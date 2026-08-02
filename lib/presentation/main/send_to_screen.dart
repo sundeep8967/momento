@@ -322,7 +322,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: SetlogColors.brownPrimary))
           : _friends.isEmpty && _groups.isEmpty
-              ? const Center(child: Text('Add some friends to send snaps!', style: TextStyle(color: SetlogColors.collectionsHomeTextSecondary)))
+              ? const Center(child: Text('Add some friends to send moments!', style: TextStyle(color: SetlogColors.collectionsHomeTextSecondary)))
               : ListView(
                   padding: const EdgeInsets.only(bottom: 100),
                   children: [

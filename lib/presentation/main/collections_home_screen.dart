@@ -499,7 +499,7 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
       ),
       ChatCardItem(
         name: 'Liam Tech',
-        status: 'Received • Snap',
+        status: 'Received • Moment',
         statusColor: SetlogColors.snapViewerAccent,
         time: '4H',
         streak: 24,
@@ -574,7 +574,7 @@ class ChatCardItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Avatar container with optional Glowing Momento Pink Border for New Snaps
+          // Avatar container with optional Glowing Momento Pink Border for New Moments
           Container(
             width: 56,
             height: 56,
