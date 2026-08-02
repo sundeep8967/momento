@@ -25,6 +25,9 @@ class CollectionsHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
+  // Track which snap URLs we've already precached so we never schedule a
+  // redundant addPostFrameCallback on subsequent stream rebuilds.
+  final Set<String> _precachedIds = {};
   @override
   Widget build(BuildContext context) {
     final myProfile = ref.watch(myProfileProvider).value;
@@ -41,20 +44,30 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
         loading: () => const Center(child: CupertinoActivityIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
         data: (originalEntries) {
-          // Pre-cache unread moment poster images in background for 0ms instant playback
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            for (final group in originalEntries) {
-              for (final s in group) {
-                if (!s.isViewed && s.videoUrl.isNotEmpty && s.videoUrl.startsWith('http')) {
-                  final posterUrl = s.isVideo && s.videoUrl.contains('/upload/')
-                      ? s.videoUrl.replaceAll('/upload/', '/upload/f_jpg,q_auto,so_0/').replaceAll(RegExp(r'\.(mp4|mov|mkv|avi|webm)$', caseSensitive: false), '.jpg')
-                      : s.videoUrl;
-                  precacheImage(NetworkImage(posterUrl), context);
-                }
+          // Pre-cache only new unread moment poster images — guard with a Set so
+          // we never call addPostFrameCallback more than once per unique snap URL.
+          for (final group in originalEntries) {
+            for (final s in group) {
+              if (!s.isViewed &&
+                  s.videoUrl.isNotEmpty &&
+                  s.videoUrl.startsWith('http') &&
+                  !_precachedIds.contains(s.videoUrl)) {
+                _precachedIds.add(s.videoUrl);
+                final posterUrl = s.isVideo && s.videoUrl.contains('/upload/')
+                    ? s.videoUrl
+                        .replaceAll('/upload/', '/upload/f_jpg,q_auto,so_0/')
+                        .replaceAll(
+                            RegExp(r'\.(mp4|mov|mkv|avi|webm)$',
+                                caseSensitive: false),
+                            '.jpg')
+                    : s.videoUrl;
+                // Schedule a single deferred precache — safe, no repeated callbacks
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) { if (mounted) precacheImage(NetworkImage(posterUrl), context); },
+                );
               }
             }
-          });
+          }
 
           final settings = ref.watch(friendSettingsProvider);
           final pinnedBffUid = settings.pinnedBffUid;
