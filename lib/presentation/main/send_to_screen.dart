@@ -11,6 +11,7 @@ import 'package:momento/data/snap_repository.dart';
 import 'package:momento/data/cloudinary_service.dart';
 import 'package:momento/data/local_cache.dart';
 import 'package:momento/theme/colors.dart';
+import 'package:momento/theme/friend_settings_provider.dart';
 
 class SendToScreen extends ConsumerStatefulWidget {
   final String mediaPath;
@@ -278,11 +279,22 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = ref.watch(friendSettingsProvider);
+    final pinnedBffUid = settings.pinnedBffUid;
+
     final filteredGroups = _searchQuery.isEmpty ? _groups : _groups.where((g) => g.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
-    final filteredFriends = _searchQuery.isEmpty ? _friends : _friends.where((f) => 
+    final filteredFriends = _searchQuery.isEmpty ? List<UserProfile>.from(_friends) : _friends.where((f) => 
         f.username.toLowerCase().contains(_searchQuery.toLowerCase()) || 
         f.displayName.toLowerCase().contains(_searchQuery.toLowerCase())
     ).toList();
+    
+    if (pinnedBffUid != null) {
+      filteredFriends.sort((a, b) {
+        if (a.uid == pinnedBffUid && b.uid != pinnedBffUid) return -1;
+        if (b.uid == pinnedBffUid && a.uid != pinnedBffUid) return 1;
+        return 0; // Maintain existing order
+      });
+    }
     final showLocal = _searchQuery.isEmpty || 'local map'.contains(_searchQuery.toLowerCase());
     final showDrop = _searchQuery.isEmpty || 'drop on map'.contains(_searchQuery.toLowerCase());
     final hasMapOrGroups = filteredGroups.isNotEmpty || showLocal || showDrop;
@@ -421,6 +433,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                           itemBuilder: (context, index) {
                             final friend = filteredFriends[index];
                             final isSelected = _selectedFriendUids.contains(friend.uid);
+                            final isPinned = friend.uid == pinnedBffUid;
                             final displayName = friend.uid == FirebaseAuth.instance.currentUser?.uid 
                                 ? '${friend.username} (Myself)' 
                                 : friend.username;
@@ -464,14 +477,23 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            displayName,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.black,
-                                              letterSpacing: -0.2,
-                                            ),
+                                          Row(
+                                            children: [
+                                              if (isPinned)
+                                                const Padding(
+                                                  padding: EdgeInsets.only(right: 4.0),
+                                                  child: Text('📌', style: TextStyle(fontSize: 14)),
+                                                ),
+                                              Text(
+                                                displayName,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: SetlogColors.collectionsHomeTextPrimary,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
                                           ),
                                           const SizedBox(height: 2),
                                           Text(

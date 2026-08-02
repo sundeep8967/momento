@@ -15,6 +15,7 @@ import 'dart:convert';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../theme/colors.dart';
 import '../../theme/smoking_mode_provider.dart';
+import '../../theme/friend_settings_provider.dart';
 
 class CollectionsHomeScreen extends ConsumerStatefulWidget {
   const CollectionsHomeScreen({super.key});
@@ -37,7 +38,22 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
       body: inboxAsyncValue.when(
         loading: () => const Center(child: CupertinoActivityIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
-        data: (entries) {
+        data: (originalEntries) {
+          final settings = ref.watch(friendSettingsProvider);
+          final pinnedBffUid = settings.pinnedBffUid;
+
+          var entries = List.of(originalEntries);
+          if (pinnedBffUid != null) {
+            entries.sort((a, b) {
+              final aTarget = a.first.groupName ?? (a.first.senderUid == currentUid ? a.first.receiverUid : a.first.senderUid);
+              final bTarget = b.first.groupName ?? (b.first.senderUid == currentUid ? b.first.receiverUid : b.first.senderUid);
+              
+              if (aTarget == pinnedBffUid && bTarget != pinnedBffUid) return -1;
+              if (bTarget == pinnedBffUid && aTarget != pinnedBffUid) return 1;
+              
+              return 0; // Maintain original time-based sort for others
+            });
+          }
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -181,8 +197,8 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                       userSnaps.sort((a, b) => b.timestamp.compareTo(a.timestamp));
                       final snap = userSnaps.first;
                       final isMe = snap.senderUid == currentUid;
-                      // Use groupName if it exists, otherwise the senderUid of the snap.
-                      final targetId = snap.groupName ?? snap.senderUid;
+                      final targetId = snap.groupName ?? (isMe ? snap.receiverUid : snap.senderUid);
+                      final isPinned = targetId == pinnedBffUid;
                       final isSending = sendingIds.contains(targetId);
 
                       final unreadCount = userSnaps.where((s) => !s.isViewed).length;
@@ -210,6 +226,9 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                       }
 
                       return GestureDetector(
+                        onLongPress: () {
+                          _showFriendOptionsSheet(context, ref, targetId, displayFinalName, isPinned);
+                        },
                         onTap: () {
                           if (isSending) return; // disable tap while sending
                           if (isNew) {
@@ -231,6 +250,7 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                           isNew: isNew && !isSending,
                           isVideo: snap.isVideo,
                           isSending: isSending,
+                          isPinned: isPinned,
                         ),
                       );
                     },
@@ -242,6 +262,35 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _showFriendOptionsSheet(BuildContext context, WidgetRef ref, String targetId, String targetName, bool isPinned) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(targetName),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              if (isPinned) {
+                ref.read(friendSettingsProvider.notifier).unpinBff();
+              } else {
+                ref.read(friendSettingsProvider.notifier).setPinnedBff(targetId);
+              }
+            },
+            child: Text(isPinned ? 'Unpin #1 BFF' : 'Pin as #1 BFF 📌', 
+              style: TextStyle(color: isPinned ? CupertinoColors.destructiveRed : SetlogColors.momentoPink),
+            ),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          isDefaultAction: true,
+          child: const Text('Cancel'),
+        ),
       ),
     );
   }
@@ -423,6 +472,7 @@ class ChatCardItem extends StatelessWidget {
   final bool isChatReceived;
   final bool isVideo;
   final bool isSending;
+  final bool isPinned;
 
   const ChatCardItem({
     super.key,
@@ -439,6 +489,7 @@ class ChatCardItem extends StatelessWidget {
     this.isChatReceived = false,
     this.isVideo = false,
     this.isSending = false,
+    this.isPinned = false,
   });
 
   @override
@@ -520,14 +571,23 @@ class ChatCardItem extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black,
-                        letterSpacing: -0.2,
-                      ),
+                    Row(
+                      children: [
+                        if (isPinned)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 4.0),
+                            child: Text('📌', style: TextStyle(fontSize: 14)),
+                          ),
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.5,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
                     ),
                     if (streak != null) ...[
                       const SizedBox(width: 8),

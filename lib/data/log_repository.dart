@@ -235,20 +235,31 @@ class LogRepository {
       final userDoc = await _db.collection('users').doc(uid).get();
       if (userDoc.exists) {
         final data = userDoc.data()!;
+        final lastLogTimestamp = data['lastLogTimestamp'] as Timestamp?;
         final lastLogDate = data['lastLogDate'] as String?;
         int currentStreak = data['currentStreak'] as int? ?? 0;
         int longestStreak = data['longestStreak'] as int? ?? 0;
         
-        if (lastLogDate != null) {
+        final now = DateTime.now();
+
+        if (lastLogTimestamp != null) {
+          final differenceInHours = now.difference(lastLogTimestamp.toDate()).inHours;
+          if (differenceInHours <= 34) {
+            // Consecutive clip within 34-hour grace period
+            currentStreak += 1;
+          } else {
+            // Streak broken
+            currentStreak = 1;
+          }
+        } else if (lastLogDate != null) {
+          // Fallback to old calendar logic for migration
           final lastDate = DateFormat('yyyy-MM-dd').parse(lastLogDate);
           final todayDate = DateFormat('yyyy-MM-dd').parse(_today);
           final difference = todayDate.difference(lastDate).inDays;
           
           if (difference == 1) {
-            // Consecutive day
             currentStreak += 1;
           } else if (difference > 1) {
-            // Streak broken
             currentStreak = 1;
           }
         } else {
@@ -267,6 +278,11 @@ class LogRepository {
         });
       }
     }
+
+    // Always update lastLogTimestamp on every clip to push the 34-hour deadline forward
+    batch.update(_db.collection('users').doc(uid), {
+      'lastLogTimestamp': FieldValue.serverTimestamp(),
+    });
     
     await batch.commit();
 
