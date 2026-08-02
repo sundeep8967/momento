@@ -18,6 +18,7 @@ class SendToScreen extends ConsumerStatefulWidget {
   final bool isVideo;
   final String? caption;
   final bool isFrontCamera;
+  final String? from;
 
   const SendToScreen({
     super.key,
@@ -25,6 +26,7 @@ class SendToScreen extends ConsumerStatefulWidget {
     required this.isVideo,
     this.caption,
     this.isFrontCamera = false,
+    this.from,
   });
 
   @override
@@ -47,6 +49,9 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.from == 'map') {
+      _dropOnMap = true;
+    }
     _loadData();
   }
 
@@ -139,8 +144,12 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
       };
     }
 
-    // Immediately return to Home Screen
-    context.go('/main');
+    // Immediately return to Home Screen or Map Screen
+    if (widget.from == 'map') {
+      context.go('/map');
+    } else {
+      context.go('/main');
+    }
     
     // Run the heavy lifting in the background
     Future.microtask(() async {
@@ -460,16 +469,11 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                                           width: 2,
                                         ),
                                       ),
-                                      child: friend.avatar != null
-                                          ? AvatarWidget(avatar: friend.avatar!, size: 48)
-                                          : CircleAvatar(
-                                              radius: 24,
-                                              backgroundColor: SetlogColors.brownPrimary.withOpacity(0.1),
-                                              child: Text(
-                                                friend.username.isNotEmpty ? friend.username[0].toUpperCase() : '?',
-                                                style: const TextStyle(fontWeight: FontWeight.bold, color: SetlogColors.brownPrimary, fontSize: 20),
-                                              ),
-                                            ),
+                                      child: MomentoProfileAvatar(
+                                        photoUrl: friend.photoUrl,
+                                        seed: friend.uid,
+                                        size: 48,
+                                      ),
                                     ),
                                     const SizedBox(width: 14),
                                     // Name and Username

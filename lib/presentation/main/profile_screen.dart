@@ -106,13 +106,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: SetlogColors.authSurface,
-        title: const Text('Delete Account?', style: TextStyle(color: Colors.white)),
-        content: const Text('This action cannot be undone. All your logs and data will be permanently deleted.', style: TextStyle(color: Colors.white70)),
+        backgroundColor: Colors.white,
+        title: const Text('Delete Account?', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        content: const Text('This action cannot be undone. All your logs and data will be permanently deleted.', style: TextStyle(color: Colors.black54)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: const Text('Cancel', style: TextStyle(color: Colors.black45, fontWeight: FontWeight.w600)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),

@@ -107,7 +107,11 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: 'camera',
-          pageBuilder: (context, state) => _fluidRoute(state, const CameraCaptureScreen()),
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            final from = extra?['from'] as String? ?? state.uri.queryParameters['from'];
+            return _fluidRoute(state, CameraCaptureScreen(from: from));
+          },
         ),
         GoRoute(
           path: 'send_to',
@@ -117,6 +121,8 @@ final GoRouter appRouter = GoRouter(
               mediaPath: extra['mediaPath'] as String,
               isVideo: extra['isVideo'] as bool,
               caption: extra['caption'] as String?,
+              isFrontCamera: extra['isFrontCamera'] as bool? ?? false,
+              from: extra['from'] as String?,
             ));
           },
         ),

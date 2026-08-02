@@ -14,7 +14,8 @@ import '../../theme/colors.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class CameraCaptureScreen extends StatefulWidget {
-  const CameraCaptureScreen({super.key});
+  final String? from;
+  const CameraCaptureScreen({super.key, this.from});
 
   @override
   State<CameraCaptureScreen> createState() => _CameraCaptureScreenState();
@@ -206,6 +207,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       'isVideo': _isVideo,
       'caption': caption.isEmpty ? null : caption,
       'isFrontCamera': _isFrontCamera,
+      'from': widget.from,
     });
     
     // Reset state here in case they go back

@@ -121,31 +121,16 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
                         ),
                       ...mapSnaps.map((snap) => Marker(
                         point: LatLng(snap.lat!, snap.lng!),
-                        width: 80,
-                        height: 40,
+                        width: 56,
+                        height: 56,
                         child: GestureDetector(
                           onTap: () => _onSnapTapped(snap),
-                          child: Container(
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.grey.shade300, width: 1),
-                              boxShadow: [
-                                BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 4))
-                              ]
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.lock, color: SetlogColors.momentoPink, size: 16),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Snap', 
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)
-                                ),
-                              ],
-                            ),
+                          child: MomentoProfileAvatar(
+                            photoUrl: null,
+                            seed: snap.senderUid,
+                            size: 48,
+                            showBorder: true,
+                            showGlow: true,
                           ),
                         ),
                       ))
@@ -230,7 +215,7 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
                 right: 0,
                 child: Center(
                   child: GestureDetector(
-                    onTap: () => context.push('/main/camera'),
+                    onTap: () => context.push('/main/camera', extra: {'from': 'map'}),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                       decoration: BoxDecoration(
