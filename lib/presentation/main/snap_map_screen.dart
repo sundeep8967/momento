@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -99,6 +100,52 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
             return true;
           }).toList();
 
+          // ── Circular spread ──────────────────────────────────────────────
+          // Place ALL map snaps in a circle around the user's live location
+          // (or the snap's own coordinates if the user has no fix).
+          // Radius scales with N so markers never overlap regardless of count.
+          final int n = mapSnaps.length;
+          final LatLng centre = _currentLocation ??
+              (n > 0
+                  ? LatLng(mapSnaps.first.lat!, mapSnaps.first.lng!)
+                  : const LatLng(51.509364, -0.128928));
+
+          // Each marker is ~54px wide. At zoom 15 ≈ 4.78 m/px → ~258 m/marker.
+          // orbitRadius in degrees lat so adjacent markers have ≥ 60 px gap.
+          // minSeparationDeg ≈ (54+10)px * 4.78m/px / 111_000 m/deg ≈ 0.00275
+          const double markerPx = 64.0;
+          const double mPerPxZoom15 = 4.78;
+          const double mPerDeg = 111000.0;
+          final double minSep = markerPx * mPerPxZoom15 / mPerDeg; // ~0.00275 deg
+          // circumference = n * minSep  →  r = n * minSep / (2π)
+          final double orbitRadius = n <= 1
+              ? 0.0
+              : math.max(0.0006, n * minSep / (2 * math.pi));
+
+          final List<(DirectSnap, LatLng)> positioned = [];
+          for (int i = 0; i < n; i++) {
+            final snap = mapSnaps[i];
+            late LatLng point;
+            if (n == 1 && _currentLocation == null) {
+              // Single snap, no user location — show exactly where it was dropped
+              point = LatLng(snap.lat!, snap.lng!);
+            } else if (n == 1) {
+              // Single snap near user — offset slightly above so it doesn't hide the dot
+              point = LatLng(centre.latitude + orbitRadius * 1.4, centre.longitude);
+            } else {
+              // Multiple snaps: spread evenly starting from top (−π/2)
+              final double angle = (2 * math.pi * i / n) - math.pi / 2;
+              point = LatLng(
+                centre.latitude + orbitRadius * math.cos(angle),
+                centre.longitude +
+                    orbitRadius *
+                        math.sin(angle) /
+                        math.cos(centre.latitude * math.pi / 180),
+              );
+            }
+            positioned.add((snap, point));
+          }
+
           return Stack(
             children: [
               // 1. The Fullscreen Map
@@ -127,21 +174,36 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
                             showGlow: true,
                           ),
                         ),
-                      ...mapSnaps.map((snap) => Marker(
-                        point: LatLng(snap.lat!, snap.lng!),
-                        width: 56,
-                        height: 56,
-                        child: GestureDetector(
-                          onTap: () => _onSnapTapped(snap),
-                          child: MomentoProfileAvatar(
-                            photoUrl: null,
-                            seed: snap.senderUid,
-                            size: 48,
-                            showBorder: true,
-                            showGlow: true,
+                      ...positioned.map((entry) {
+                        final (snap, point) = entry;
+                        return Marker(
+                          point: point,
+                          width: 56,
+                          height: 56,
+                          child: GestureDetector(
+                            onTap: () => _onSnapTapped(snap),
+                            child: Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: SetlogColors.snapViewerAccent,
+                                  width: 2.5,
+                                ),
+                              ),
+                              child: ClipOval(
+                                child: AvatarWidget(
+                                  avatar: MomentoAvatar.fromSeed(snap.senderUid),
+                                  size: 48,
+                                  showBorder: false,
+                                  showGlow: false,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ))
+                        );
+                      }),
                     ],
                   ),
                 ],

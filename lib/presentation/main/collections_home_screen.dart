@@ -662,13 +662,17 @@ class ChatCardItem extends StatelessWidget {
                   children: [
                     _buildStatusIndicator(),
                     const SizedBox(width: 6),
-                    Text(
-                      status,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: statusColor,
-                        fontWeight: isNew ? FontWeight.w800 : FontWeight.w600,
-                        letterSpacing: isNew ? 0.2 : 0,
+                    Flexible(
+                      child: Text(
+                        status,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: statusColor,
+                          fontWeight: isNew ? FontWeight.w800 : FontWeight.w600,
+                          letterSpacing: isNew ? 0.2 : 0,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 4),

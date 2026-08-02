@@ -117,7 +117,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
     }
   }
 
-  void _sendSnap() {
+  void _sendSnap() async {
     if (_selectedFriendUids.isEmpty && _selectedGroupIds.isEmpty) return;
     
     // Grab all values we need before we navigate away (so we don't rely on `this.widget` after pop)
@@ -128,8 +128,33 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
     final selectedGroups = _groups.where((g) => _selectedGroupIds.contains(g.id)).toList();
     final snapRepo = ref.read(snapRepositoryProvider);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-
     final sendingNotifier = ref.read(sendingSnapsProvider.notifier);
+
+    final dropOnMap = _dropOnMap;
+    final postToLocal = _postToLocal;
+
+    // 0. Fetch location synchronously while the screen is active and context is valid
+    double? lat;
+    double? lng;
+    if (dropOnMap || postToLocal) {
+      try {
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (serviceEnabled) {
+          LocationPermission permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+          }
+          if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+            final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+            lat = position.latitude;
+            lng = position.longitude;
+          }
+        }
+      } catch (e) {
+        debugPrint('Error getting location: $e');
+      }
+    }
+    debugPrint('SNAP SEND: dropOnMap=$dropOnMap, lat=$lat, lng=$lng');
 
     // Add selected users/groups to the sending state
     final sendingIds = {
@@ -154,60 +179,38 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
     // Run the heavy lifting in the background
     Future.microtask(() async {
       try {
-        // 0. Fetch location if dropping on map
-        double? lat;
-        double? lng;
-        if (_dropOnMap || _postToLocal) {
-          bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-          if (serviceEnabled) {
-            LocationPermission permission = await Geolocator.checkPermission();
-            if (permission == LocationPermission.denied) {
-              permission = await Geolocator.requestPermission();
-            }
-            if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-              final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-              lat = position.latitude;
-              lng = position.longitude;
-            }
-          }
-        }
-
         // 1. Upload media to Cloudinary
         final mediaUrl = isVideo 
             ? await CloudinaryService.uploadVideo(mediaPath)
             : await CloudinaryService.uploadImage(mediaPath);
 
         // 2. Send snap via repository
-        if (_selectedFriendUids.isNotEmpty || selectedGroups.isNotEmpty) {
+        if (friendUids.isNotEmpty || selectedGroups.isNotEmpty) {
           await snapRepo.sendSnap(
             videoUrl: mediaUrl, 
             isVideo: isVideo,
             friendUids: friendUids,
             groups: selectedGroups,
-            lat: _dropOnMap ? lat : null,
-            lng: _dropOnMap ? lng : null,
+            lat: dropOnMap ? lat : null,
+            lng: dropOnMap ? lng : null,
             isFrontCamera: isFrontCamera,
           );
         }
 
-        if (_postToLocal) {
-          // Send to public local map
-          if (lat == null || lng == null) {
-            Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-            lat = position.latitude;
-            lng = position.longitude;
+        if (postToLocal) {
+          if (lat != null && lng != null) {
+            await snapRepo.sendLocalSnap(
+              videoUrl: mediaUrl,
+              isVideo: isVideo,
+              lat: lat,
+              lng: lng,
+              isFrontCamera: isFrontCamera,
+            );
           }
-          await snapRepo.sendLocalSnap(
-            videoUrl: mediaUrl,
-            isVideo: isVideo,
-            lat: lat,
-            lng: lng,
-            isFrontCamera: isFrontCamera,
-          );
         }
 
         // Show success snackbar only for local/map drops if no friends were selected
-        if (sendingIds.isEmpty && (_postToLocal || _dropOnMap)) {
+        if (sendingIds.isEmpty && (postToLocal || dropOnMap)) {
           scaffoldMessenger.showSnackBar(
             const SnackBar(
               content: Text('Posted to map ✓', style: TextStyle(color: Colors.white)),
