@@ -48,12 +48,30 @@ class PushNotificationService {
     // Register background handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-    // Note: Actual permission request is typically handled in UI (e.g. PermissionsScreen).
-    // Here we just set up listeners if already granted, or for token updates.
-    
+    // Show heads-up notifications even when app is in foreground
+    await _messaging.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
     // Listen for token refreshes
     _messaging.onTokenRefresh.listen((newToken) {
       _saveTokenToDatabase(newToken);
+    });
+
+    // Listen to Auth State Changes so FCM token is saved whenever user logs in or app restores session
+    _auth.authStateChanges().listen((user) async {
+      if (user != null) {
+        try {
+          final token = await _messaging.getToken();
+          if (token != null) {
+            await _saveTokenToDatabase(token);
+          }
+        } catch (e) {
+          debugPrint('Error fetching FCM token on auth change: $e');
+        }
+      }
     });
 
     // If we already have permission, get initial token and save it
@@ -97,6 +115,7 @@ class PushNotificationService {
         'fcmToken': token,
         'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+      debugPrint('Successfully saved FCM token for user $uid');
     } catch (e) {
       debugPrint('Error saving FCM token: $e');
     }
@@ -166,13 +185,17 @@ class PushNotificationService {
               'android': {
                 'priority': 'high',
                 'notification': {
+                  'channel_id': 'high_importance_channel',
+                  'sound': 'default',
+                  'notification_priority': 'PRIORITY_HIGH',
                   'click_action': 'FLUTTER_NOTIFICATION_CLICK'
                 }
               },
               'apns': {
                 'payload': {
                   'aps': {
-                    'sound': 'default'
+                    'sound': 'default',
+                    'content-available': 1
                   }
                 }
               }
@@ -183,6 +206,8 @@ class PushNotificationService {
 
       if (fcmResponse.statusCode != 200) {
         debugPrint('FCM Send Error: ${fcmResponse.body}');
+      } else {
+        debugPrint('FCM Notification successfully sent!');
       }
     } catch (e) {
       debugPrint('Error sending push notification: $e');
