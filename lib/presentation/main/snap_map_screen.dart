@@ -47,6 +47,12 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
   }
 
   void _onSnapTapped(DirectSnap snap) async {
+    final isMe = snap.senderUid == FirebaseAuth.instance.currentUser?.uid;
+    if (isMe) {
+      context.push('/main/snap_viewer', extra: [snap]);
+      return;
+    }
+
     if (_currentLocation == null) return;
     if (snap.lat == null || snap.lng == null) return;
 
@@ -81,7 +87,9 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
         builder: (context, snapshot) {
           final snaps = snapshot.data ?? [];
           final mapSnaps = snaps.where((s) {
-            if (s.lat == null || s.lng == null || s.isViewed) return false;
+            final isMe = s.senderUid == FirebaseAuth.instance.currentUser?.uid;
+            if (s.lat == null || s.lng == null) return false;
+            if (!isMe && s.isViewed) return false;
             
             if (_selectedTab == 1 && _currentLocation != null) {
               // Local public snaps: filter by 10km radius

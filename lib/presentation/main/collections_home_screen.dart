@@ -12,6 +12,7 @@ import '../../avatar_kit/avatar_widget.dart';
 import '../../data/friends_repository.dart';
 import 'dart:convert';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../theme/colors.dart';
 import '../../theme/smoking_mode_provider.dart';
 import '../../theme/friend_settings_provider.dart';
@@ -178,7 +179,10 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                       userSnaps.sort((a, b) => b.timestamp.compareTo(a.timestamp));
                       final snap = userSnaps.first;
                       final isMe = snap.senderUid == currentUid;
-                      final targetId = snap.groupName ?? snap.senderUid;
+                      final partnerUid = snap.senderUid == currentUid 
+                          ? (snap.recipientUid ?? currentUid!) 
+                          : snap.senderUid;
+                      final targetId = snap.groupName ?? partnerUid;
                       final isPinned = targetId == pinnedBffUid;
                       final isSending = sendingIds.contains(targetId);
 
@@ -188,21 +192,35 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                       final snapColor = snap.isVideo ? const Color(0xFFAB47BC) : SetlogColors.momentoPink;
                       final displayName = snap.groupName != null && snap.groupName!.isNotEmpty
                           ? snap.groupName!
-                          : isMe
+                          : (targetId == currentUid)
                               ? '${snap.senderUsername} (Myself)'
                               : snap.senderUsername;
                       
-                      // For self-sent snaps where receiver is the same as sender (actual self-snaps)
                       final displayFinalName = displayName;
 
                       String displayStatus;
                       Color displayStatusColor;
                       if (isSending) {
                         displayStatus = 'Sending...';
-                        displayStatusColor = Colors.blue; // or any sending color
+                        displayStatusColor = Colors.blue;
                       } else {
-                        displayStatus = isNew ? (isMe ? 'OPEN MOMENTO • TAP TO VIEW' : 'NEW MOMENTO • TAP TO VIEW') : (isMe ? 'Delivered' : 'Opened');
-                        displayStatusColor = isNew ? SetlogColors.momentoPink : const Color(0xFF666666);
+                        if (isNew) {
+                          if (snap.lat != null && snap.lng != null) {
+                            displayStatus = isMe 
+                                ? 'YOUR SECRET MOMENTO • TRAVEL TO UNLOCK' 
+                                : 'RECEIVED A SECRET MOMENT • TRAVEL HERE TO UNLOCK';
+                          } else {
+                            displayStatus = isMe ? 'OPEN MOMENTO • TAP TO VIEW' : 'NEW MOMENTO • TAP TO VIEW';
+                          }
+                          displayStatusColor = SetlogColors.momentoPink;
+                        } else {
+                          if (snap.lat != null && snap.lng != null) {
+                            displayStatus = isMe ? 'Sent a secret moment' : 'Opened a secret moment';
+                          } else {
+                            displayStatus = isMe ? 'Delivered' : 'Opened';
+                          }
+                          displayStatusColor = const Color(0xFF666666);
+                        }
                       }
 
                       // Evaluate Pairwise Streak
@@ -227,11 +245,58 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                         onLongPress: () {
                           _showFriendOptionsSheet(context, ref, targetId, displayFinalName, isPinned);
                         },
-                        onTap: () {
-                          if (isSending) return; // disable tap while sending
+                        onTap: () async {
+                          if (isSending) return;
                           if (isNew) {
                             final unreadSnaps = userSnaps.where((s) => !s.isViewed).toList();
-                            if (unreadSnaps.isNotEmpty) {
+                            if (unreadSnaps.isEmpty) return;
+
+                            final firstSnap = unreadSnaps.first;
+                            if (firstSnap.lat != null && firstSnap.lng != null) {
+                              // Check distance
+                              bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+                              double distance = 999999;
+                              if (serviceEnabled) {
+                                LocationPermission permission = await Geolocator.checkPermission();
+                                if (permission == LocationPermission.denied) {
+                                  permission = await Geolocator.requestPermission();
+                                }
+                                if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+                                  final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+                                  distance = Geolocator.distanceBetween(pos.latitude, pos.longitude, firstSnap.lat!, firstSnap.lng!);
+                                }
+                              }
+
+                              if (distance <= 50) {
+                                if (context.mounted) {
+                                  context.push('/main/snap_viewer', extra: unreadSnaps);
+                                }
+                              } else {
+                                if (context.mounted) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      backgroundColor: Colors.white,
+                                      title: const Text('Secret Momento', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+                                      content: Text('This is a Secret Momento. You must travel within 50 meters of its location to unlock it!\n\nYou are currently ${distance > 100000 ? "far" : "${distance.toStringAsFixed(0)}m"} away.'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context),
+                                          child: const Text('Cancel', style: TextStyle(color: Colors.black45, fontWeight: FontWeight.w600)),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                            context.push('/map');
+                                          },
+                                          child: const Text('Open Map', style: TextStyle(color: SetlogColors.momentoPink, fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                              }
+                            } else {
                               context.push('/main/snap_viewer', extra: unreadSnaps);
                             }
                           }
@@ -242,8 +307,8 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                           statusColor: displayStatusColor,
                           time: timeago.format(snap.timestamp, locale: 'en_short').toUpperCase(),
                           streak: finalStreakCount,
-                          avatarSeed: snap.groupName ?? snap.senderUid,
-                          avatarUrl: isMe ? myProfile?.photoUrl : null,
+                          avatarSeed: targetId,
+                          avatarUrl: (targetId == currentUid) ? myProfile?.photoUrl : null,
                           isOpened: !isNew && !isMe,
                           isDelivered: !isNew && isMe,
                           isNew: isNew && !isSending,

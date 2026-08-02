@@ -16,6 +16,7 @@ class DirectSnap {
   final double? lat;
   final double? lng;
   final bool isFrontCamera;
+  final String? recipientUid;
 
   DirectSnap({
     required this.id,
@@ -29,6 +30,7 @@ class DirectSnap {
     this.lat,
     this.lng,
     this.isFrontCamera = false,
+    this.recipientUid,
   });
 
   factory DirectSnap.fromFirestore(String id, Map<String, dynamic> data) => DirectSnap(
@@ -43,6 +45,7 @@ class DirectSnap {
         lat: (data['lat'] as num?)?.toDouble(),
         lng: (data['lng'] as num?)?.toDouble(),
         isFrontCamera: data['isFrontCamera'] ?? false,
+        recipientUid: data['recipientUid'],
       );
 }
 
@@ -58,12 +61,15 @@ final groupedInboxStreamProvider = StreamProvider<List<List<DirectSnap>>>((ref) 
   final uid = FirebaseAuth.instance.currentUser?.uid;
   
   return snapRepo.getInboxStream().map((allSnaps) {
-    // Group snaps by senderUid or groupName
+    // Group snaps by partnerUid or groupName
     final Map<String, List<DirectSnap>> grouped = {};
     for (final snap in allSnaps) {
+      final String partnerUid = snap.senderUid == uid 
+          ? (snap.recipientUid ?? uid!) 
+          : snap.senderUid;
       final key = snap.groupName != null && snap.groupName!.isNotEmpty
           ? 'group:${snap.groupName}'
-          : snap.senderUid;
+          : partnerUid;
       grouped.putIfAbsent(key, () => []).add(snap);
     }
 
@@ -105,15 +111,67 @@ class SnapRepository {
 
     final batch = _db.batch();
 
-    // 1. Send direct to friends (including self)
-    final recipients = Set<String>.from(friendUids);
-    recipients.add(uid); // Ensure sender always gets a copy in their own inbox
-    
-    for (final friendUid in recipients) {
-      final snapRef = _db.collection('users').doc(friendUid).collection('inbox').doc();
+    // 1. Send direct to friends
+    for (final friendUid in friendUids) {
+      if (friendUid == uid) {
+        // Self-snap: unread copy for self
+        final snapRef = _db.collection('users').doc(uid).collection('inbox').doc();
+        batch.set(snapRef, {
+          'senderUid': uid,
+          'senderUsername': senderUsername,
+          'recipientUid': uid,
+          'groupName': null,
+          'videoUrl': videoUrl,
+          'isVideo': isVideo,
+          'timestamp': FieldValue.serverTimestamp(),
+          'isViewed': false,
+          'isFrontCamera': isFrontCamera,
+          if (lat != null) 'lat': lat,
+          if (lng != null) 'lng': lng,
+        });
+        continue;
+      }
+
+      // Copy for the recipient (unread)
+      final recipientSnapRef = _db.collection('users').doc(friendUid).collection('inbox').doc();
+      batch.set(recipientSnapRef, {
+        'senderUid': uid,
+        'senderUsername': senderUsername,
+        'recipientUid': friendUid,
+        'groupName': null,
+        'videoUrl': videoUrl,
+        'isVideo': isVideo,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isViewed': false,
+        'isFrontCamera': isFrontCamera,
+        if (lat != null) 'lat': lat,
+        if (lng != null) 'lng': lng,
+      });
+
+      // Copy for the sender (viewed/sent marker)
+      final senderSnapRef = _db.collection('users').doc(uid).collection('inbox').doc();
+      batch.set(senderSnapRef, {
+        'senderUid': uid,
+        'senderUsername': senderUsername,
+        'recipientUid': friendUid,
+        'groupName': null,
+        'videoUrl': videoUrl,
+        'isVideo': isVideo,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isViewed': true, // Already viewed by sender
+        'isFrontCamera': isFrontCamera,
+        if (lat != null) 'lat': lat,
+        if (lng != null) 'lng': lng,
+      });
+    }
+
+    // If friendUids was empty, write a self snap
+    if (friendUids.isEmpty) {
+      final snapRef = _db.collection('users').doc(uid).collection('inbox').doc();
       batch.set(snapRef, {
         'senderUid': uid,
         'senderUsername': senderUsername,
+        'recipientUid': uid,
         'groupName': null,
         'videoUrl': videoUrl,
         'isVideo': isVideo,
@@ -128,16 +186,16 @@ class SnapRepository {
     // 2. Send to groups (fan out to all members)
     for (final group in groups) {
       for (final memberUid in group.members) {
-        // We do NOT skip the sender here anymore, so they get the group snap too.
         final snapRef = _db.collection('users').doc(memberUid).collection('inbox').doc();
         batch.set(snapRef, {
           'senderUid': uid,
           'senderUsername': senderUsername,
+          'recipientUid': memberUid,
           'groupName': group.name,
           'videoUrl': videoUrl,
           'isVideo': isVideo,
           'timestamp': FieldValue.serverTimestamp(),
-          'isViewed': false,
+          'isViewed': memberUid == uid, // Sender's own group copy is viewed
           'isFrontCamera': isFrontCamera,
           if (lat != null) 'lat': lat,
           if (lng != null) 'lng': lng,
