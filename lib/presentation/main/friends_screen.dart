@@ -171,7 +171,7 @@ class _FriendsScreenState extends State<FriendsScreen>
           indicatorWeight: 3,
           indicatorSize: TabBarIndicatorSize.label,
           labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-          dividerColor: Colors.black.withOpacity(0.05),
+          dividerColor: Colors.black.withValues(alpha: 0.05),
           tabs: [
             const Tab(text: 'Search'),
             Tab(
@@ -229,7 +229,7 @@ class _FriendsScreenState extends State<FriendsScreen>
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: 0.04),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: TextField(
@@ -256,7 +256,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: SetlogColors.momentoPink.withOpacity(0.3),
+                        color: SetlogColors.momentoPink.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
@@ -288,7 +288,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   backgroundColor: Colors.white,
-                  side: BorderSide(color: Colors.black.withOpacity(0.08)),
+                  side: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 0,
                 ),
@@ -311,10 +311,10 @@ class _FriendsScreenState extends State<FriendsScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.black.withOpacity(0.04)),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -325,7 +325,7 @@ class _FriendsScreenState extends State<FriendsScreen>
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.black.withOpacity(0.05), width: 1),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.05), width: 1),
             ),
             child: MomentoProfileAvatar(
               photoUrl: user.photoUrl,
@@ -380,7 +380,7 @@ class _FriendsScreenState extends State<FriendsScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(CupertinoIcons.person_add, size: 56, color: Colors.black.withOpacity(0.1))
+            Icon(CupertinoIcons.person_add, size: 56, color: Colors.black.withValues(alpha: 0.1))
                 .animate().fadeIn(duration: 600.ms).scale(duration: 600.ms, curve: Curves.easeOutBack),
             const SizedBox(height: 16),
             const Text('No pending requests', style: TextStyle(color: Colors.black45, fontSize: 16, fontWeight: FontWeight.w500))
@@ -401,10 +401,10 @@ class _FriendsScreenState extends State<FriendsScreen>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.black.withOpacity(0.04)),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -415,7 +415,7 @@ class _FriendsScreenState extends State<FriendsScreen>
               Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.black.withOpacity(0.05), width: 1),
+                  border: Border.all(color: Colors.black.withValues(alpha: 0.05), width: 1),
                 ),
                 child: MomentoProfileAvatar(
                   photoUrl: null,
@@ -463,7 +463,7 @@ class _FriendsScreenState extends State<FriendsScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(CupertinoIcons.person_2, size: 64, color: SetlogColors.momentoPink.withOpacity(0.5))
+            Icon(CupertinoIcons.person_2, size: 64, color: SetlogColors.momentoPink.withValues(alpha: 0.5))
                 .animate(onPlay: (controller) => controller.repeat(reverse: true))
                 .scaleXY(end: 1.1, duration: 1500.ms, curve: Curves.easeInOut)
                 .animate()
@@ -507,10 +507,10 @@ class _FriendsScreenState extends State<FriendsScreen>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.black.withOpacity(0.04)),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -521,7 +521,7 @@ class _FriendsScreenState extends State<FriendsScreen>
               Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.black.withOpacity(0.05), width: 1),
+                  border: Border.all(color: Colors.black.withValues(alpha: 0.05), width: 1),
                 ),
                 child: MomentoProfileAvatar(
                   photoUrl: f.photoUrl,
@@ -602,7 +602,7 @@ class _FriendsScreenState extends State<FriendsScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(CupertinoIcons.person_3, size: 64, color: SetlogColors.snapViewerAccent.withOpacity(0.5))
+            Icon(CupertinoIcons.person_3, size: 64, color: SetlogColors.snapViewerAccent.withValues(alpha: 0.5))
                 .animate(onPlay: (controller) => controller.repeat(reverse: true))
                 .scaleXY(end: 1.1, duration: 1500.ms, curve: Curves.easeInOut)
                 .animate()
@@ -634,10 +634,10 @@ class _FriendsScreenState extends State<FriendsScreen>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.black.withOpacity(0.04)),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),

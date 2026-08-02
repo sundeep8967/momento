@@ -88,14 +88,8 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
       
       List<UserProfile> displayFriends = List.from(friends);
       
-      // Fallback: If no accepted mutual friends yet, fetch all registered users so friends are always visible!
-      if (displayFriends.isEmpty) {
-        final allUsersSnap = await FirebaseFirestore.instance.collection('users').limit(50).get();
-        displayFriends = allUsersSnap.docs
-            .where((d) => d.id != myUid)
-            .map((d) => UserProfile.fromMap(d.id, d.data()))
-            .toList();
-      }
+      // Fallback: If no accepted mutual friends yet, we no longer load all 50 users (Fix C5)
+      // Empty inbox should remain empty or show "Invite Friends" button.
 
       // Add "Myself" at the top so you can always send snaps to yourself
       if (myProfile != null) {
@@ -118,7 +112,10 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
   }
 
   void _sendSnap() async {
+    if (_isSending) return; // FIX M6: Guard against double tap
     if (_selectedFriendUids.isEmpty && _selectedGroupIds.isEmpty) return;
+    
+    setState(() => _isSending = true);
     
     // Grab all values we need before we navigate away (so we don't rely on `this.widget` after pop)
     final mediaPath = widget.mediaPath;
@@ -145,9 +142,20 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
             permission = await Geolocator.requestPermission();
           }
           if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-            final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-            lat = position.latitude;
-            lng = position.longitude;
+            try {
+              final position = await Geolocator.getCurrentPosition(
+                desiredAccuracy: LocationAccuracy.high,
+                timeLimit: const Duration(seconds: 3),
+              );
+              lat = position.latitude;
+              lng = position.longitude;
+            } catch (_) {
+              final lastPosition = await Geolocator.getLastKnownPosition();
+              if (lastPosition != null) {
+                lat = lastPosition.latitude;
+                lng = lastPosition.longitude;
+              }
+            }
           }
         }
       } catch (e) {
@@ -251,7 +259,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
               children: [
                 CircleAvatar(
                   radius: 24,
-                  backgroundColor: isSelected ? SetlogColors.momentoPink.withOpacity(0.15) : SetlogColors.authSurface,
+                  backgroundColor: isSelected ? SetlogColors.momentoPink.withValues(alpha: 0.15) : SetlogColors.authSurface,
                   child: Text(emoji, style: const TextStyle(fontSize: 22)),
                 ),
                 if (isSelected)

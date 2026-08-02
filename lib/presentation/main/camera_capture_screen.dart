@@ -410,7 +410,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                     border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.5),
+                        color: Colors.black.withValues(alpha: 0.5),
                         blurRadius: 16,
                         spreadRadius: 2,
                       ),
@@ -433,7 +433,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                               : const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
                         ),
                         Container(
-                          color: SetlogColors.momentoPink.withOpacity(0.2),
+                          color: SetlogColors.momentoPink.withValues(alpha: 0.2),
                         ),
                         Positioned(
                           bottom: 6,
@@ -529,7 +529,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: SetlogColors.momentoPink.withOpacity(0.5),
+                                    color: SetlogColors.momentoPink.withValues(alpha: 0.5),
                                     blurRadius: 16,
                                     spreadRadius: 2,
                                   ),
@@ -635,9 +635,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                               height: 52,
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.35),
+                                color: Colors.black.withValues(alpha: 0.35),
                                 borderRadius: BorderRadius.circular(26),
-                                border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1),
                               ),
                               child: Row(
                                 children: [
@@ -678,7 +678,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                                 borderRadius: BorderRadius.circular(28),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: SetlogColors.momentoPink.withOpacity(0.5),
+                                    color: SetlogColors.momentoPink.withValues(alpha: 0.5),
                                     blurRadius: 16,
                                     spreadRadius: 2,
                                     offset: const Offset(0, 4),
@@ -789,9 +789,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             width: buttonSize,
             height: buttonSize,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.22),
+              color: Colors.white.withValues(alpha: 0.22),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1),
             ),
             child: Icon(icon, color: Colors.white, size: iconSize),
           ),
@@ -821,9 +821,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.25),
+                    color: Colors.black.withValues(alpha: 0.25),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
                   ),
                   child: Center(
                     child: Icon(
