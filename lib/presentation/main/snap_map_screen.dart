@@ -100,50 +100,70 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
             return true;
           }).toList();
 
-          // ── Circular spread ──────────────────────────────────────────────
-          // Place ALL map snaps in a circle around the user's live location
-          // (or the snap's own coordinates if the user has no fix).
-          // Radius scales with N so markers never overlap regardless of count.
-          final int n = mapSnaps.length;
-          final LatLng centre = _currentLocation ??
-              (n > 0
-                  ? LatLng(mapSnaps.first.lat!, mapSnaps.first.lng!)
-                  : const LatLng(51.509364, -0.128928));
+          // ── Spiderfy at snap coordinates ──────────────────────────────────
+          // Group snaps by their actual drop location (~22 m grid).
+          // Each group spreads in concentric rings AT that location.
+          // Live-location dot is completely independent – not used as centre.
+          const double gridRes = 5000.0; // 1 / 5000 ≈ 22 m per cell
 
-          // Each marker is ~54px wide. At zoom 15 ≈ 4.78 m/px → ~258 m/marker.
-          // orbitRadius in degrees lat so adjacent markers have ≥ 60 px gap.
-          // minSeparationDeg ≈ (54+10)px * 4.78m/px / 111_000 m/deg ≈ 0.00275
-          const double markerPx = 64.0;
-          const double mPerPxZoom15 = 4.78;
-          const double mPerDeg = 111000.0;
-          final double minSep = markerPx * mPerPxZoom15 / mPerDeg; // ~0.00275 deg
-          // circumference = n * minSep  →  r = n * minSep / (2π)
-          final double orbitRadius = n <= 1
-              ? 0.0
-              : math.max(0.0006, n * minSep / (2 * math.pi));
+          final Map<String, List<int>> buckets = {};
+          for (int i = 0; i < mapSnaps.length; i++) {
+            final lat = (mapSnaps[i].lat! * gridRes).round();
+            final lng = (mapSnaps[i].lng! * gridRes).round();
+            buckets.putIfAbsent('$lat,$lng', () => []).add(i);
+          }
+
+          // Ring geometry — marker 52 px wide, need 64 px between centres (52+12 gap)
+          // At zoom 15: 1° lat ≈ 23 871 px  →  64 px ≈ 0.00268°
+          // Ring k radius = k * baseRadius
+          // baseRadius chosen so ring-1 circumference holds ≥ 6 markers cleanly
+          //   ring-1 capacity = floor(2π * baseRadius / slotDeg) ≈ floor(2π * 0.004 / 0.00268) ≈ 9
+          const double slotDeg  = 0.00268;   // ~64 px at zoom 15
+          const double baseRadius = 0.004;    // ~95 px radius on ring-1
 
           final List<(DirectSnap, LatLng)> positioned = [];
-          for (int i = 0; i < n; i++) {
-            final snap = mapSnaps[i];
-            late LatLng point;
-            if (n == 1 && _currentLocation == null) {
-              // Single snap, no user location — show exactly where it was dropped
-              point = LatLng(snap.lat!, snap.lng!);
-            } else if (n == 1) {
-              // Single snap near user — offset slightly above so it doesn't hide the dot
-              point = LatLng(centre.latitude + orbitRadius * 1.4, centre.longitude);
-            } else {
-              // Multiple snaps: spread evenly starting from top (−π/2)
-              final double angle = (2 * math.pi * i / n) - math.pi / 2;
-              point = LatLng(
-                centre.latitude + orbitRadius * math.cos(angle),
-                centre.longitude +
-                    orbitRadius *
-                        math.sin(angle) /
-                        math.cos(centre.latitude * math.pi / 180),
-              );
+
+          for (final entry in buckets.entries) {
+            final indices = entry.value;
+            final centre = LatLng(
+              mapSnaps[indices.first].lat!,
+              mapSnaps[indices.first].lng!,
+            );
+
+            if (indices.length == 1) {
+              // Single snap: place exactly at its coordinates
+              positioned.add((mapSnaps[indices.first], centre));
+              continue;
             }
-            positioned.add((snap, point));
+
+            // Fill concentric rings until all snaps are placed
+            int placed = 0;
+            int ring = 1;
+            while (placed < indices.length) {
+              final double r = baseRadius * ring;
+              // How many markers fit on this ring without overlapping?
+              final int capacity =
+                  math.max(4, (2 * math.pi * r / slotDeg).floor());
+              final int toPlace =
+                  math.min(capacity, indices.length - placed);
+
+              for (int j = 0; j < toPlace; j++) {
+                final double angle =
+                    (2 * math.pi * j / toPlace) - math.pi / 2;
+                positioned.add((
+                  mapSnaps[indices[placed + j]],
+                  LatLng(
+                    centre.latitude + r * math.cos(angle),
+                    centre.longitude +
+                        r *
+                            math.sin(angle) /
+                            math.cos(centre.latitude * math.pi / 180),
+                  ),
+                ));
+              }
+              placed += toPlace;
+              ring++;
+            }
           }
 
           return Stack(
