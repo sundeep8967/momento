@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import '../presentation/auth/auth_landing_screen.dart';
 import '../presentation/auth/permissions_screen.dart';
@@ -40,15 +41,11 @@ CustomTransitionPage<void> _fluidRoute(GoRouterState state, Widget child) {
     key: state.pageKey,
     child: child,
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return FadeTransition(
-        opacity: CurveTween(curve: Curves.easeOutCirc).animate(animation),
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0.0, 0.05),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
-          child: child,
-        ),
+      return CupertinoPageTransition(
+        primaryRouteAnimation: animation,
+        secondaryRouteAnimation: secondaryAnimation,
+        linearTransition: false,
+        child: child,
       );
     },
     transitionDuration: const Duration(milliseconds: 400),

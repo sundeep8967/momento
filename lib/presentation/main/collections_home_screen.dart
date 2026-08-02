@@ -105,15 +105,15 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
             }
           }
 
-          return CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
+          return SafeArea(
+            bottom: false,
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
               // Custom Header
               SliverToBoxAdapter(
-                child: SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -210,8 +210,6 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                     ),
                   ),
                 ),
-              ),
-
               const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
               // Chat Cards List
@@ -400,7 +398,7 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
 
               const SliverToBoxAdapter(child: SizedBox(height: 110)),
             ],
-          );
+          ));
         },
       ),
     );
