@@ -31,6 +31,7 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
     final inboxAsyncValue = ref.watch(groupedInboxStreamProvider);
     final sendingIds = ref.watch(sendingSnapsProvider);
+    final friendships = ref.watch(friendshipsStreamProvider).value ?? [];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
@@ -216,13 +217,30 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
 
                       String displayStatus;
                       Color displayStatusColor;
-                      
                       if (isSending) {
                         displayStatus = 'Sending...';
                         displayStatusColor = Colors.blue; // or any sending color
                       } else {
                         displayStatus = isNew ? (isMe ? 'OPEN MOMENTO • TAP TO VIEW' : 'NEW MOMENTO • TAP TO VIEW') : (isMe ? 'Delivered' : 'Opened');
                         displayStatusColor = isNew ? SetlogColors.momentoPink : const Color(0xFF666666);
+                      }
+
+                      // Evaluate Pairwise Streak
+                      int? finalStreakCount;
+                      try {
+                        final friendship = friendships.firstWhere((f) => f.users.contains(targetId) && f.users.contains(currentUid));
+                        final lastMe = friendship.lastSnaps[currentUid!];
+                        final lastThem = friendship.lastSnaps[targetId];
+                        if (lastMe != null && lastThem != null) {
+                          final now = DateTime.now();
+                          if (now.difference(lastMe).inHours <= 36 && now.difference(lastThem).inHours <= 36) {
+                            if (friendship.streakCount >= 1) {
+                              finalStreakCount = friendship.streakCount;
+                            }
+                          }
+                        }
+                      } catch (_) {
+                        // No friendship found
                       }
 
                       return GestureDetector(
@@ -243,7 +261,7 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                           status: displayStatus,
                           statusColor: displayStatusColor,
                           time: timeago.format(snap.timestamp, locale: 'en_short').toUpperCase(),
-                          streak: unreadCount > 0 ? unreadCount : null,
+                          streak: finalStreakCount,
                           avatarSeed: displayFinalName,
                           isOpened: !isNew && !isMe,
                           isDelivered: !isNew && isMe,
