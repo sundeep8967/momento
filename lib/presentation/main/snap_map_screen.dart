@@ -123,8 +123,8 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
       buckets.putIfAbsent('$lat,$lng', () => []).add(i);
     }
 
-    const double slotDeg = 0.00268;
-    const double baseRadius = 0.004;
+    const double slotDeg = 0.0004;
+    const double baseRadius = 0.0003;
 
     final List<(DirectSnap, LatLng)> positioned = [];
     for (final entry in buckets.entries) {
