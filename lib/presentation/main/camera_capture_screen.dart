@@ -20,7 +20,7 @@ class CameraCaptureScreen extends StatefulWidget {
 }
 
 class _CameraCaptureScreenState extends State<CameraCaptureScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _progressController;
   CameraController? _cameraController;
   CameraController? _pipCameraController; // Back camera for dual-camera PiP
@@ -44,6 +44,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initCamera();
     _progressController = AnimationController(
       vsync: this,
@@ -77,11 +78,36 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _progressController.dispose();
     _cameraController?.dispose();
     _pipCameraController?.dispose();
     _captionController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+      // Free up camera resources when backgrounded
+      _cameraController?.dispose();
+      _cameraController = null;
+      if (_isDualCamera) {
+        _pipCameraController?.dispose();
+        _pipCameraController = null;
+      }
+      if (mounted) setState(() => _isCameraInitialized = false);
+    } else if (state == AppLifecycleState.resumed) {
+      // Reinitialize camera when returning to app
+      _initCamera();
+      if (_isDualCamera) {
+        _toggleDualCamera(); // This will re-initialize the PiP camera
+      }
+    }
   }
 
   Future<void> _takePicture() async {
@@ -401,30 +427,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                           alignment: Alignment.centerLeft,
                         ),
                         const Spacer(),
-                        // Vertical Toolbar with Labels (Switch Camera, Flash, Dual Cam, Music)
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                             // 1. Switch Camera (Front/Back)
-                            _buildToolbarItem(
-                              icon: CupertinoIcons.arrow_2_circlepath,
-                              label: 'Switch Camera',
-                              onTap: _switchCamera,
-                            ),
-                            // 2. Flash
-                            _buildToolbarItem(
-                              icon: _isFlashOn ? CupertinoIcons.bolt_fill : CupertinoIcons.bolt_slash,
-                              label: 'Flash',
-                              onTap: _toggleFlash,
-                            ),
-                            // 3. Dual Camera Mode
-                            _buildToolbarItem(
-                              icon: CupertinoIcons.rectangle_on_rectangle_angled,
-                              label: 'Dual Cam',
-                              onTap: _toggleDualCamera,
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
@@ -486,22 +488,52 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                 ),
               ).animate().fadeIn(delay: 500.ms, duration: 600.ms).slideY(begin: 0.2, curve: Curves.easeOutBack),
 
-              // Hint
+              // Camera Controls (Horizontal Row)
               Positioned(
-                bottom: 0,
+                bottom: 130, // Just above the capture button
                 left: 0,
                 right: 0,
                 child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 134),
-                    child: Center(
-                      child: AnimatedOpacity(
-                        opacity: _isRecording ? 0.0 : 1.0,
-                        duration: const Duration(milliseconds: 200),
-                        child: const Text(
-                          'Tap for photo  ·  Hold to record',
-                          style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
+                  child: AnimatedOpacity(
+                    opacity: _isRecording ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildToolbarItem(
+                          icon: CupertinoIcons.arrow_2_circlepath,
+                          label: 'Switch Camera',
+                          onTap: _switchCamera,
                         ),
+                        _buildToolbarItem(
+                          icon: _isFlashOn ? CupertinoIcons.bolt_fill : CupertinoIcons.bolt_slash,
+                          label: 'Flash',
+                          onTap: _toggleFlash,
+                        ),
+                        _buildToolbarItem(
+                          icon: CupertinoIcons.rectangle_on_rectangle_angled,
+                          label: 'Dual Cam',
+                          onTap: _toggleDualCamera,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ).animate().fadeIn(delay: 700.ms, duration: 600.ms),
+
+              // Hint
+              Positioned(
+                bottom: 104, // Right above the capture button
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Center(
+                    child: AnimatedOpacity(
+                      opacity: _isRecording ? 0.0 : 1.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: const Text(
+                        'Tap for photo  ·  Hold to record',
+                        style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
                       ),
                     ),
                   ),
@@ -719,7 +751,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     return GestureDetector(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

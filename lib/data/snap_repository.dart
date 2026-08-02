@@ -50,6 +50,33 @@ final snapRepositoryProvider = Provider<SnapRepository>((ref) {
   return SnapRepository._internal();
 });
 
+final groupedInboxStreamProvider = StreamProvider<List<List<DirectSnap>>>((ref) {
+  final snapRepo = ref.watch(snapRepositoryProvider);
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  
+  return snapRepo.getInboxStream().map((allSnaps) {
+    // Group snaps by senderUid or groupName
+    final Map<String, List<DirectSnap>> grouped = {};
+    for (final snap in allSnaps) {
+      final key = snap.groupName != null && snap.groupName!.isNotEmpty
+          ? 'group:${snap.groupName}'
+          : snap.senderUid;
+      grouped.putIfAbsent(key, () => []).add(snap);
+    }
+
+    final entries = grouped.values.toList();
+    entries.sort((a, b) {
+      final aNew = a.any((s) => !s.isViewed && s.senderUid != uid);
+      final bNew = b.any((s) => !s.isViewed && s.senderUid != uid);
+      if (aNew != bNew) return aNew ? -1 : 1;
+      return b.first.timestamp.compareTo(a.first.timestamp);
+    });
+    
+    return entries;
+  });
+});
+
+
 class SnapRepository {
   SnapRepository._internal();
   static final _db = FirebaseFirestore.instance;

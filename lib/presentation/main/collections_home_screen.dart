@@ -28,35 +28,15 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
   Widget build(BuildContext context) {
     final snapRepo = ref.read(snapRepositoryProvider);
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    final inboxAsyncValue = ref.watch(groupedInboxStreamProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       bottomNavigationBar: _buildFloatingBottomBar(context),
-      body: StreamBuilder<List<DirectSnap>>(
-        stream: snapRepo.getInboxStream(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CupertinoActivityIndicator());
-          }
-
-          final allSnaps = snapshot.data ?? [];
-
-          // Group snaps by senderUid or groupName
-          final Map<String, List<DirectSnap>> grouped = {};
-          for (final snap in allSnaps) {
-            final key = snap.groupName != null && snap.groupName!.isNotEmpty
-                ? 'group:${snap.groupName}'
-                : snap.senderUid;
-            grouped.putIfAbsent(key, () => []).add(snap);
-          }
-
-          final entries = grouped.values.toList();
-          entries.sort((a, b) {
-            final aNew = a.any((s) => !s.isViewed && s.senderUid != currentUid);
-            final bNew = b.any((s) => !s.isViewed && s.senderUid != currentUid);
-            if (aNew != bNew) return aNew ? -1 : 1;
-            return b.first.timestamp.compareTo(a.first.timestamp);
-          });
+      body: inboxAsyncValue.when(
+        loading: () => const Center(child: CupertinoActivityIndicator()),
+        error: (err, stack) => Center(child: Text('Error: $err')),
+        data: (entries) {
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
