@@ -41,6 +41,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
   
   final Set<String> _selectedFriendUids = {};
   final Set<String> _selectedGroupIds = {};
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -273,6 +274,15 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final filteredGroups = _searchQuery.isEmpty ? _groups : _groups.where((g) => g.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    final filteredFriends = _searchQuery.isEmpty ? _friends : _friends.where((f) => 
+        f.username.toLowerCase().contains(_searchQuery.toLowerCase()) || 
+        f.displayName.toLowerCase().contains(_searchQuery.toLowerCase())
+    ).toList();
+    final showLocal = _searchQuery.isEmpty || 'local map'.contains(_searchQuery.toLowerCase());
+    final showDrop = _searchQuery.isEmpty || 'drop on map'.contains(_searchQuery.toLowerCase());
+    final hasMapOrGroups = filteredGroups.isNotEmpty || showLocal || showDrop;
+
     return Scaffold(
       backgroundColor: SetlogColors.collectionsHomeBackground,
       appBar: AppBar(
@@ -280,31 +290,6 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
         title: const Text('Send To', style: TextStyle(color: SetlogColors.collectionsHomeTextPrimary, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: SetlogColors.collectionsHomeTextPrimary),
         elevation: 0,
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                final allSelected = _selectedFriendUids.length == _friends.length && 
-                                    (_groups.isEmpty || _selectedGroupIds.length == _groups.length);
-                if (allSelected) {
-                  // Deselect all
-                  _selectedFriendUids.clear();
-                  _selectedGroupIds.clear();
-                } else {
-                  // Select all
-                  _selectedFriendUids.addAll(_friends.map((f) => f.uid));
-                  _selectedGroupIds.addAll(_groups.map((g) => g.id));
-                }
-              });
-            },
-            child: Text(
-              _selectedFriendUids.length == _friends.length && (_groups.isEmpty || _selectedGroupIds.length == _groups.length) && _friends.isNotEmpty 
-                  ? 'Deselect All' 
-                  : 'Select All',
-              style: const TextStyle(color: SetlogColors.momentoPink, fontWeight: FontWeight.bold),
-            ),
-          )
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: SetlogColors.brownPrimary))
@@ -314,122 +299,90 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                   padding: const EdgeInsets.only(bottom: 100),
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('GROUPS & MAP', style: TextStyle(color: SetlogColors.collectionsHomeTextSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                bool allSelected = _groups.isNotEmpty && _selectedGroupIds.length == _groups.length;
-                                if (allSelected) {
-                                  _selectedGroupIds.clear();
-                                } else {
-                                  _selectedGroupIds.addAll(_groups.map((g) => g.id));
-                                }
-                              });
-                            },
-                            child: Text(
-                              (_groups.isNotEmpty && _selectedGroupIds.length == _groups.length) ? 'None' : 'All',
-                              style: const TextStyle(color: SetlogColors.momentoPink, fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(
-                      height: 80,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _groups.length + 2,
-                        itemBuilder: (context, index) {
-                          // 0: Local Map
-                          if (index == 0) {
-                            return _buildCircularItem(
-                              emoji: '🌍',
-                              label: 'Local',
-                              isSelected: _postToLocal,
-                              onTap: () => setState(() {
-                                _postToLocal = !_postToLocal;
-                                if (_postToLocal) _dropOnMap = true;
-                              }),
-                            );
-                          }
-                          // 1: Drop on Map
-                          if (index == 1) {
-                            return _buildCircularItem(
-                              emoji: '📍',
-                              label: 'Drop',
-                              isSelected: _dropOnMap,
-                              onTap: _postToLocal ? null : () => setState(() => _dropOnMap = !_dropOnMap),
-                            );
-                          }
-
-                          // 2+: Real Groups
-                          final group = _groups[index - 2];
-                          final isSelected = _selectedGroupIds.contains(group.id);
-                          
-                          return GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                if (isSelected) _selectedGroupIds.remove(group.id);
-                                else _selectedGroupIds.add(group.id);
-                              });
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Stack(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 24,
-                                        backgroundColor: isSelected ? SetlogColors.momentoPink.withOpacity(0.15) : SetlogColors.authSurface,
-                                        backgroundImage: group.photoUrl != null ? NetworkImage(group.photoUrl!) : null,
-                                        child: group.photoUrl == null 
-                                            ? Icon(
-                                                CupertinoIcons.group_solid, 
-                                                color: isSelected ? SetlogColors.momentoPink : SetlogColors.brownPrimary,
-                                                size: 24,
-                                              )
-                                            : null,
-                                      ),
-                                      if (isSelected)
-                                        Positioned(
-                                          bottom: -2,
-                                          right: -2,
-                                          child: Container(
-                                            decoration: const BoxDecoration(
-                                              color: Colors.white,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(CupertinoIcons.checkmark_alt_circle_fill, color: SetlogColors.momentoPink, size: 18),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  SizedBox(
-                                    width: 52,
-                                    child: Text(
-                                      group.name,
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: CupertinoSearchTextField(
+                        placeholder: 'Search friends or groups...',
+                        style: const TextStyle(color: SetlogColors.collectionsHomeTextPrimary),
+                        onChanged: (val) {
+                          setState(() {
+                            _searchQuery = val;
+                          });
                         },
                       ),
                     ),
-                    if (_friends.isNotEmpty) ...[
+                    if (hasMapOrGroups)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('GROUPS & MAP', style: TextStyle(color: SetlogColors.collectionsHomeTextSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  bool allSelected = filteredGroups.isNotEmpty && _selectedGroupIds.length >= filteredGroups.length;
+                                  if (allSelected) {
+                                    _selectedGroupIds.removeAll(filteredGroups.map((g) => g.id));
+                                  } else {
+                                    _selectedGroupIds.addAll(filteredGroups.map((g) => g.id));
+                                  }
+                                });
+                              },
+                              child: Text(
+                                (filteredGroups.isNotEmpty && filteredGroups.every((g) => _selectedGroupIds.contains(g.id))) ? 'None' : 'All',
+                                style: const TextStyle(color: SetlogColors.momentoPink, fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (hasMapOrGroups)
+                      SizedBox(
+                        height: 80,
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          scrollDirection: Axis.horizontal,
+                          children: [
+                            if (showLocal)
+                              _buildCircularItem(
+                                emoji: '🌍',
+                                label: 'Local',
+                                isSelected: _postToLocal,
+                                onTap: () => setState(() {
+                                  _postToLocal = !_postToLocal;
+                                  if (_postToLocal) _dropOnMap = true;
+                                }),
+                              ),
+                            if (showDrop)
+                              _buildCircularItem(
+                                emoji: '📍',
+                                label: 'Drop',
+                                isSelected: _dropOnMap,
+                                onTap: _postToLocal ? null : () => setState(() => _dropOnMap = !_dropOnMap),
+                              ),
+                            ...filteredGroups.map((group) {
+                              final isSelected = _selectedGroupIds.contains(group.id);
+                              return GestureDetector(
+                                onLongPress: () {
+                                  // Open group chat (not implemented in SendTo)
+                                },
+                                child: _buildCircularItem(
+                                  emoji: '👥',
+                                  label: group.name,
+                                  isSelected: isSelected,
+                                  onTap: () => setState(() {
+                                    if (isSelected) {
+                                      _selectedGroupIds.remove(group.id);
+                                    } else {
+                                      _selectedGroupIds.add(group.id);
+                                    }
+                                  }),
+                              );
+                            }).toList(),
+                          ],
+                        ),
+                      ),
+                    if (filteredFriends.isNotEmpty) ...[
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                         child: Row(
@@ -439,15 +392,16 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                             GestureDetector(
                               onTap: () {
                                 setState(() {
-                                  if (_selectedFriendUids.length == _friends.length) {
-                                    _selectedFriendUids.clear();
+                                  bool allSelected = filteredFriends.isNotEmpty && filteredFriends.every((f) => _selectedFriendUids.contains(f.uid));
+                                  if (allSelected) {
+                                    _selectedFriendUids.removeAll(filteredFriends.map((f) => f.uid));
                                   } else {
-                                    _selectedFriendUids.addAll(_friends.map((f) => f.uid));
+                                    _selectedFriendUids.addAll(filteredFriends.map((f) => f.uid));
                                   }
                                 });
                               },
                               child: Text(
-                                _selectedFriendUids.length == _friends.length ? 'None' : 'All',
+                                (filteredFriends.isNotEmpty && filteredFriends.every((f) => _selectedFriendUids.contains(f.uid))) ? 'None' : 'All',
                                 style: const TextStyle(color: SetlogColors.momentoPink, fontSize: 13, fontWeight: FontWeight.bold),
                               ),
                             ),
@@ -458,9 +412,9 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                           physics: const NeverScrollableScrollPhysics(),
                           shrinkWrap: true,
                           padding: EdgeInsets.zero,
-                          itemCount: _friends.length,
+                          itemCount: filteredFriends.length,
                           itemBuilder: (context, index) {
-                            final friend = _friends[index];
+                            final friend = filteredFriends[index];
                             final isSelected = _selectedFriendUids.contains(friend.uid);
                             final displayName = friend.uid == FirebaseAuth.instance.currentUser?.uid 
                                 ? '${friend.username} (Myself)' 
