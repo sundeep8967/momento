@@ -16,12 +16,14 @@ class SendToScreen extends ConsumerStatefulWidget {
   final String mediaPath;
   final bool isVideo;
   final String? caption;
+  final bool isFrontCamera;
 
   const SendToScreen({
     super.key,
     required this.mediaPath,
     required this.isVideo,
     this.caption,
+    this.isFrontCamera = false,
   });
 
   @override
@@ -114,6 +116,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
     // Grab all values we need before we navigate away (so we don't rely on `this.widget` after pop)
     final mediaPath = widget.mediaPath;
     final isVideo = widget.isVideo;
+    final isFrontCamera = widget.isFrontCamera;
     final friendUids = _selectedFriendUids.toList();
     final selectedGroups = _groups.where((g) => _selectedGroupIds.contains(g.id)).toList();
     final snapRepo = ref.read(snapRepositoryProvider);
@@ -160,6 +163,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
             groups: selectedGroups,
             lat: lat,
             lng: lng,
+            isFrontCamera: isFrontCamera,
           );
         }
 
@@ -175,6 +179,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
             isVideo: isVideo,
             lat: lat,
             lng: lng,
+            isFrontCamera: isFrontCamera,
           );
         }
 

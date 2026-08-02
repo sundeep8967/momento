@@ -142,6 +142,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       'mediaPath': _recordedFile!.path,
       'isVideo': _isVideo,
       'caption': caption.isEmpty ? null : caption,
+      'isFrontCamera': _isFrontCamera,
     });
     
     // Reset state here in case they go back
@@ -242,9 +243,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               quarterTurns: _isLandscape ? 1 : 0,
               child: SizedBox.expand(
                 child: (_isReviewing && _recordedFile != null && !_isVideo)
-                    ? Image.file(
-                        File(_recordedFile!.path),
-                        fit: BoxFit.cover,
+                    ? Transform.scale(
+                        scaleX: _isFrontCamera ? -1 : 1,
+                        child: Image.file(
+                          File(_recordedFile!.path),
+                          fit: BoxFit.cover,
+                        ),
                       )
                     : _isCameraInitialized
                         ? FittedBox(

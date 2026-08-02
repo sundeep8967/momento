@@ -15,6 +15,7 @@ class DirectSnap {
   final bool isVideo;
   final double? lat;
   final double? lng;
+  final bool isFrontCamera;
 
   DirectSnap({
     required this.id,
@@ -27,6 +28,7 @@ class DirectSnap {
     this.isVideo = true,
     this.lat,
     this.lng,
+    this.isFrontCamera = false,
   });
 
   factory DirectSnap.fromFirestore(String id, Map<String, dynamic> data) => DirectSnap(
@@ -40,6 +42,7 @@ class DirectSnap {
         isVideo: data['isVideo'] ?? true, // Default to true for backwards compatibility
         lat: (data['lat'] as num?)?.toDouble(),
         lng: (data['lng'] as num?)?.toDouble(),
+        isFrontCamera: data['isFrontCamera'] ?? false,
       );
 }
 
@@ -62,6 +65,7 @@ class SnapRepository {
     required List<Group> groups,
     double? lat,
     double? lng,
+    bool isFrontCamera = false,
   }) async {
     final uid = _uid;
     if (uid == null) return;
@@ -85,6 +89,7 @@ class SnapRepository {
         'isVideo': isVideo,
         'timestamp': FieldValue.serverTimestamp(),
         'isViewed': false,
+        'isFrontCamera': isFrontCamera,
         if (lat != null) 'lat': lat,
         if (lng != null) 'lng': lng,
       });
@@ -103,6 +108,7 @@ class SnapRepository {
           'isVideo': isVideo,
           'timestamp': FieldValue.serverTimestamp(),
           'isViewed': false,
+          'isFrontCamera': isFrontCamera,
           if (lat != null) 'lat': lat,
           if (lng != null) 'lng': lng,
         });
@@ -141,6 +147,7 @@ class SnapRepository {
     required bool isVideo,
     required double lat,
     required double lng,
+    bool isFrontCamera = false,
   }) async {
     final uid = _uid;
     if (uid == null) return;
@@ -157,6 +164,7 @@ class SnapRepository {
       'isVideo': isVideo,
       'timestamp': FieldValue.serverTimestamp(),
       'isViewed': false,
+      'isFrontCamera': isFrontCamera,
       'lat': lat,
       'lng': lng,
     });

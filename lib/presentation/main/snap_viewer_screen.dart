@@ -148,16 +148,22 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
           else if (!currentSnap.isVideo)
             GestureDetector(
               onTap: _togglePlayPause,
-              child: Image.network(currentSnap.videoUrl, fit: BoxFit.contain),
+              child: Transform.scale(
+                scaleX: currentSnap.isFrontCamera ? -1 : 1,
+                child: Image.network(currentSnap.videoUrl, fit: BoxFit.contain),
+              ),
             )
           else if (_videoController != null && _videoController!.value.isInitialized)
             GestureDetector(
               onTap: _togglePlayPause,
               onLongPress: () => _videoController?.pause(),
               onLongPressUp: () => _videoController?.play(),
-              child: AspectRatio(
-                aspectRatio: _videoController!.value.aspectRatio,
-                child: VideoPlayer(_videoController!),
+              child: Transform.scale(
+                scaleX: currentSnap.isFrontCamera ? -1 : 1,
+                child: AspectRatio(
+                  aspectRatio: _videoController!.value.aspectRatio,
+                  child: VideoPlayer(_videoController!),
+                ),
               ),
             )
           else

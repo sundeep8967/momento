@@ -187,7 +187,9 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                       final snapColor = snap.isVideo ? const Color(0xFFAB47BC) : SetlogColors.momentoPink;
                       final displayName = snap.groupName != null && snap.groupName!.isNotEmpty
                           ? snap.groupName!
-                          : snap.senderUsername;
+                          : isMe
+                              ? '${snap.senderUsername} (Myself)'
+                              : snap.senderUsername;
 
                       return GestureDetector(
                         onTap: () {
