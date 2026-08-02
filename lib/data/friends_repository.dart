@@ -89,6 +89,9 @@ class Friendship {
   final String requestedBy;
   final String status;
   final DateTime createdAt;
+  final Map<String, DateTime> lastSnaps;
+  final int streakCount;
+  final DateTime? lastStreakIncrement;
 
   Friendship({
     required this.id,
@@ -96,15 +99,33 @@ class Friendship {
     required this.requestedBy,
     required this.status,
     required this.createdAt,
+    this.lastSnaps = const {},
+    this.streakCount = 0,
+    this.lastStreakIncrement,
   });
 
-  factory Friendship.fromFirestore(String id, Map<String, dynamic> data) => Friendship(
-        id: id,
-        users: List<String>.from(data['users'] ?? []),
-        requestedBy: data['requestedBy'] ?? '',
-        status: data['status'] ?? 'pending',
-        createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      );
+  factory Friendship.fromFirestore(String id, Map<String, dynamic> data) {
+    Map<String, DateTime> parsedLastSnaps = {};
+    if (data['lastSnaps'] != null) {
+      final map = data['lastSnaps'] as Map<String, dynamic>;
+      map.forEach((key, value) {
+        if (value is Timestamp) {
+          parsedLastSnaps[key] = value.toDate();
+        }
+      });
+    }
+
+    return Friendship(
+      id: id,
+      users: List<String>.from(data['users'] ?? []),
+      requestedBy: data['requestedBy'] ?? '',
+      status: data['status'] ?? 'pending',
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      lastSnaps: parsedLastSnaps,
+      streakCount: data['streakCount'] ?? 0,
+      lastStreakIncrement: (data['lastStreakIncrement'] as Timestamp?)?.toDate(),
+    );
+  }
 }
 
 class Group {
@@ -136,6 +157,16 @@ class Group {
 
 final friendsRepositoryProvider = Provider<FriendsRepository>((ref) {
   return FriendsRepository._internal();
+});
+
+final friendshipsStreamProvider = StreamProvider<List<Friendship>>((ref) {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return Stream.value([]);
+  return FirebaseFirestore.instance
+      .collection('friendships')
+      .where('users', arrayContains: uid)
+      .snapshots()
+      .map((snap) => snap.docs.map((d) => Friendship.fromFirestore(d.id, d.data())).toList());
 });
 
 class FriendsRepository {

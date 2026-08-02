@@ -147,6 +147,11 @@ class SnapRepository {
 
     await batch.commit();
 
+    // Trigger pairwise streak updates asynchronously (do not await to keep send fast)
+    if (friendUids.isNotEmpty) {
+      _updatePairwiseStreaks(uid, friendUids);
+    }
+
     // Fire push notifications to all recipients (skip sender's own copy)
     final notifUids = <String>{
       ...friendUids,
@@ -198,6 +203,73 @@ class SnapRepository {
       'lat': lat,
       'lng': lng,
     });
+  }
+
+  Future<void> _updatePairwiseStreaks(String senderUid, List<String> friendUids) async {
+    for (final friendUid in friendUids) {
+      if (friendUid == senderUid) continue;
+      
+      final sorted = [senderUid, friendUid]..sort();
+      final docId = '${sorted[0]}__${sorted[1]}';
+      final docRef = _db.collection('friendships').doc(docId);
+      
+      try {
+        await _db.runTransaction((tx) async {
+          final snap = await tx.get(docRef);
+          if (!snap.exists) return;
+          
+          final data = snap.data()!;
+          final now = DateTime.now();
+          
+          Map<String, dynamic> lastSnaps = {};
+          if (data['lastSnaps'] != null) {
+            lastSnaps = Map<String, dynamic>.from(data['lastSnaps']);
+          }
+          
+          final lastSnapOtherRaw = lastSnaps[friendUid];
+          DateTime? lastSnapOther;
+          if (lastSnapOtherRaw is Timestamp) {
+            lastSnapOther = lastSnapOtherRaw.toDate();
+          }
+          
+          final lastIncrementRaw = data['lastStreakIncrement'];
+          DateTime? lastIncrement;
+          if (lastIncrementRaw is Timestamp) {
+            lastIncrement = lastIncrementRaw.toDate();
+          }
+          
+          int currentStreak = data['streakCount'] ?? 0;
+          
+          bool isOtherActive = lastSnapOther != null && now.difference(lastSnapOther).inHours <= 36;
+          
+          lastSnaps[senderUid] = FieldValue.serverTimestamp();
+          
+          if (isOtherActive) {
+            // 12-hour cooldown
+            if (lastIncrement == null || now.difference(lastIncrement).inHours >= 12) {
+              currentStreak++;
+              tx.update(docRef, {
+                'lastSnaps': lastSnaps,
+                'streakCount': currentStreak,
+                'lastStreakIncrement': FieldValue.serverTimestamp(),
+              });
+              return;
+            }
+          } else {
+            // Other hasn't snapped in 36 hours. Streak broken.
+            currentStreak = 0;
+          }
+          
+          tx.update(docRef, {
+            'lastSnaps': lastSnaps,
+            if (!isOtherActive) 'streakCount': currentStreak,
+            if (!isOtherActive) 'lastStreakIncrement': null,
+          });
+        });
+      } catch (e) {
+        // fail silently for background streak update
+      }
+    }
   }
 
   Stream<List<DirectSnap>> getLocalSnapsStream() {
