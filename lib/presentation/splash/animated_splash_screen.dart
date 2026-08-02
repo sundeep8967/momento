@@ -17,8 +17,8 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Start auth check after a brief delay for the logo animation
-    Future.delayed(const Duration(milliseconds: 1500), _checkAuthAndRedirect);
+    // Start auth check quickly to minimize splash screen lag
+    Future.delayed(const Duration(milliseconds: 400), _checkAuthAndRedirect);
   }
 
   Future<void> _checkAuthAndRedirect() async {

@@ -12,6 +12,8 @@ import '../theme/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/friends_repository.dart';
 
+import '../data/algorithms.dart';
+
 /// Momento Avatar Widget
 /// Uses official dicebear_core — 100% offline, no server calls, no internet needed.
 /// Generates unique illustrated SVG avatars based on the MomentoAvatar configuration.
@@ -79,21 +81,42 @@ class AvatarWidget extends StatelessWidget {
     return avatarWidget;
   }
 
+  static final Map<String, Style> _styleCache = {};
+  static final LruCache<String, String> _svgCache = LruCache<String, String>(capacity: 250);
+
   String _buildSvg() {
+    final cacheKey = '${avatar.seed}_${avatar.style.name}_${avatar.skinColor}_${avatar.top}_${avatar.hairColor}_${avatar.clothes}_${avatar.eyes}_${avatar.mouth}_${avatar.bgScene}';
+    final cached = _svgCache.get(cacheKey);
+    if (cached != null) return cached;
+
+    Style getStyle(String rawJson) {
+      return _styleCache.putIfAbsent(rawJson, () => Style.parse(rawJson));
+    }
+
+    String result;
     switch (avatar.style) {
       case AvatarStyle.avataaars:
-        return Avatar(Style.parse(avataaars), avatar.toMap()).svg;
+        result = Avatar(getStyle(avataaars), avatar.toMap()).svg;
+        break;
       case AvatarStyle.adventurer:
-        return Avatar(Style.parse(adventurer), {'seed': avatar.seed}).svg;
+        result = Avatar(getStyle(adventurer), {'seed': avatar.seed}).svg;
+        break;
       case AvatarStyle.bottts:
-        return Avatar(Style.parse(bottts), {'seed': avatar.seed}).svg;
+        result = Avatar(getStyle(bottts), {'seed': avatar.seed}).svg;
+        break;
       case AvatarStyle.funEmoji:
-        return Avatar(Style.parse(funEmoji), {'seed': avatar.seed}).svg;
+        result = Avatar(getStyle(funEmoji), {'seed': avatar.seed}).svg;
+        break;
       case AvatarStyle.pixelArt:
-        return Avatar(Style.parse(pixelArt), {'seed': avatar.seed}).svg;
+        result = Avatar(getStyle(pixelArt), {'seed': avatar.seed}).svg;
+        break;
       case AvatarStyle.lorelei:
-        return Avatar(Style.parse(lorelei), {'seed': avatar.seed}).svg;
+        result = Avatar(getStyle(lorelei), {'seed': avatar.seed}).svg;
+        break;
     }
+
+    _svgCache.put(cacheKey, result);
+    return result;
   }
 }
 

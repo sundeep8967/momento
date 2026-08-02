@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'algorithms.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
@@ -301,10 +302,13 @@ class FriendsRepository {
       await LocalCache.instance.cacheFriends([]);
       return [];
     }
-    final profiles = <UserProfile>[];
-    for (final uid in uids) {
-      final doc = await _db.collection('users').doc(uid).get();
-      if (doc.exists) profiles.add(UserProfile.fromMap(doc.id, doc.data()!));
+    final docs = await Future.wait(uids.map((uid) => _db.collection('users').doc(uid).get()));
+    final profiles = docs
+        .where((doc) => doc.exists)
+        .map((doc) => UserProfile.fromMap(doc.id, doc.data()!))
+        .toList();
+    for (final p in profiles) {
+      _profileCache.put(p.uid, p);
     }
     await LocalCache.instance.cacheFriends(profiles);
     return profiles;
@@ -329,6 +333,9 @@ class FriendsRepository {
       'email': _auth.currentUser?.email ?? '',
       'photoUrl': photoUrl,
       'createdAt': FieldValue.serverTimestamp(),
+      'currentStreak': 0,
+      'longestStreak': 0,
+      'lastLogDate': null,
     }, SetOptions(merge: true));
   }
 
@@ -347,10 +354,18 @@ class FriendsRepository {
     return getUserProfile(uid);
   }
 
-  Future<UserProfile?> getUserProfile(String uid) async {
+  static final LruCache<String, UserProfile> _profileCache = LruCache<String, UserProfile>(capacity: 500);
+
+  Future<UserProfile?> getUserProfile(String uid, {bool forceRefresh = false}) async {
+    if (!forceRefresh) {
+      final cached = _profileCache.get(uid);
+      if (cached != null) return cached;
+    }
     final doc = await _db.collection('users').doc(uid).get();
     if (!doc.exists) return null;
-    return UserProfile.fromMap(doc.id, doc.data()!);
+    final profile = UserProfile.fromMap(doc.id, doc.data()!);
+    _profileCache.put(uid, profile);
+    return profile;
   }
 
   Future<void> updateProfilePicture(String photoUrl) async {

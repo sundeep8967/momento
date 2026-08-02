@@ -73,15 +73,22 @@ final groupedInboxStreamProvider = StreamProvider<List<List<DirectSnap>>>((ref) 
       grouped.putIfAbsent(key, () => []).add(snap);
     }
 
-    final entries = grouped.values.toList();
-    entries.sort((a, b) {
-      final aNew = a.any((s) => !s.isViewed && s.senderUid != uid);
-      final bNew = b.any((s) => !s.isViewed && s.senderUid != uid);
-      if (aNew != bNew) return aNew ? -1 : 1;
-      return b.first.timestamp.compareTo(a.first.timestamp);
-    });
-    
-    return entries;
+    final unreadBucket = <List<DirectSnap>>[];
+    final readBucket = <List<DirectSnap>>[];
+
+    for (final entry in grouped.values) {
+      final isNew = entry.any((s) => !s.isViewed && s.senderUid != uid);
+      if (isNew) {
+        unreadBucket.add(entry);
+      } else {
+        readBucket.add(entry);
+      }
+    }
+
+    unreadBucket.sort((a, b) => b.first.timestamp.compareTo(a.first.timestamp));
+    readBucket.sort((a, b) => b.first.timestamp.compareTo(a.first.timestamp));
+
+    return [...unreadBucket, ...readBucket];
   });
 });
 

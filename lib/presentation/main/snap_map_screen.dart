@@ -11,6 +11,7 @@ import 'package:momento/theme/colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:momento/avatar_kit/avatar_widget.dart';
 import 'package:momento/avatar_kit/momento_avatar.dart';
+import 'package:momento/data/algorithms.dart';
 
 class SnapMapScreen extends ConsumerStatefulWidget {
   const SnapMapScreen({super.key});
@@ -20,30 +21,79 @@ class SnapMapScreen extends ConsumerStatefulWidget {
 }
 
 class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
+  static LatLng? _cachedUserLocation;
+
   final MapController _mapController = MapController();
   LatLng? _currentLocation;
   int _selectedTab = 0; // 0: Friends, 1: Local
+  late Stream<List<DirectSnap>> _inboxStream;
+  late Stream<List<DirectSnap>> _localSnapsStream;
 
   @override
   void initState() {
     super.initState();
+    _currentLocation = _cachedUserLocation;
+    final snapRepo = ref.read(snapRepositoryProvider);
+    _inboxStream = snapRepo.getInboxStream();
+    _localSnapsStream = snapRepo.getLocalSnapsStream();
     _fetchLocation();
   }
 
   Future<void> _fetchLocation() async {
+    // 1. Fast Path: Instant OS location cache (0ms, no GPS hardware cold start)
+    try {
+      final lastPos = await Geolocator.getLastKnownPosition();
+      if (lastPos != null && mounted) {
+        final loc = LatLng(lastPos.latitude, lastPos.longitude);
+        _cachedUserLocation = loc;
+        if (_currentLocation == null) {
+          setState(() {
+            _currentLocation = loc;
+          });
+          _mapController.move(loc, 15);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Location permissions check
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (serviceEnabled) {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+    if (!serviceEnabled) {
+      serviceEnabled = await Geolocator.openLocationSettings();
+      if (!serviceEnabled) return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('📍 Location permission is permanently denied. Please enable it in Settings.'),
+          ),
+        );
       }
-      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-        final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-        setState(() {
-          _currentLocation = LatLng(pos.latitude, pos.longitude);
-        });
-        _mapController.move(_currentLocation!, 15);
-      }
+      return;
+    }
+
+    // 3. High Accuracy GPS Position Refresh
+    if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 8),
+        );
+        if (mounted) {
+          final loc = LatLng(pos.latitude, pos.longitude);
+          _cachedUserLocation = loc;
+          setState(() {
+            _currentLocation = loc;
+          });
+          _mapController.move(loc, 15);
+        }
+      } catch (_) {}
     }
   }
 
@@ -74,24 +124,23 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final snapRepo = ref.read(snapRepositoryProvider);
-
     return Scaffold(
       body: StreamBuilder<List<DirectSnap>>(
-        stream: _selectedTab == 0 ? snapRepo.getInboxStream() : snapRepo.getLocalSnapsStream(),
+        stream: _selectedTab == 0 ? _inboxStream : _localSnapsStream,
         builder: (context, snapshot) {
           final snaps = snapshot.data ?? [];
-          final mapSnaps = snaps.where((s) {
-            if (s.lat == null || s.lng == null) return false;
-            if (s.isViewed) return false; // Viewed snaps disappear from map
-
-            if (_selectedTab == 1 && _currentLocation != null) {
-              // Local public snaps: filter by 10km radius
-              final dist = Geolocator.distanceBetween(_currentLocation!.latitude, _currentLocation!.longitude, s.lat!, s.lng!);
-              if (dist > 10000) return false;
+          List<DirectSnap> mapSnaps;
+          if (_selectedTab == 1 && _currentLocation != null) {
+            final grid = SpatialHashGrid<DirectSnap>(cellSizeDegrees: 0.05);
+            for (final s in snaps) {
+              if (s.lat != null && s.lng != null && !s.isViewed) {
+                grid.insert(s.lat!, s.lng!, s);
+              }
             }
-            return true;
-          }).toList();
+            mapSnaps = grid.queryRadius(_currentLocation!.latitude, _currentLocation!.longitude, 10000);
+          } else {
+            mapSnaps = snaps.where((s) => s.lat != null && s.lng != null && !s.isViewed).toList();
+          }
 
           // ── Spiderfy at snap coordinates ──────────────────────────────────
           // Group snaps by their actual drop location (~22 m grid).
@@ -165,7 +214,7 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
               FlutterMap(
                 mapController: _mapController,
                 options: MapOptions(
-                  initialCenter: _currentLocation ?? const LatLng(51.509364, -0.128928),
+                  initialCenter: _currentLocation ?? _cachedUserLocation ?? const LatLng(51.509364, -0.128928),
                   initialZoom: 15.0,
                 ),
                 children: [

@@ -41,6 +41,21 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
         loading: () => const Center(child: CupertinoActivityIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
         data: (originalEntries) {
+          // Pre-cache unread moment poster images in background for 0ms instant playback
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            for (final group in originalEntries) {
+              for (final s in group) {
+                if (!s.isViewed && s.videoUrl.isNotEmpty && s.videoUrl.startsWith('http')) {
+                  final posterUrl = s.isVideo && s.videoUrl.contains('/upload/')
+                      ? s.videoUrl.replaceAll('/upload/', '/upload/f_jpg,q_auto,so_0/').replaceAll(RegExp(r'\.(mp4|mov|mkv|avi|webm)$', caseSensitive: false), '.jpg')
+                      : s.videoUrl;
+                  precacheImage(NetworkImage(posterUrl), context);
+                }
+              }
+            }
+          });
+
           final settings = ref.watch(friendSettingsProvider);
           final pinnedBffUid = settings.pinnedBffUid;
 
@@ -225,20 +240,22 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
 
                       // Evaluate Pairwise Streak
                       int? finalStreakCount;
-                      try {
-                        final friendship = friendships.firstWhere((f) => f.users.contains(targetId) && f.users.contains(currentUid));
-                        final lastMe = friendship.lastSnaps[currentUid!];
-                        final lastThem = friendship.lastSnaps[targetId];
-                        if (lastMe != null && lastThem != null) {
-                          final now = DateTime.now();
-                          if (now.difference(lastMe).inHours <= 36 && now.difference(lastThem).inHours <= 36) {
-                            if (friendship.streakCount >= 1) {
-                              finalStreakCount = friendship.streakCount;
+                      if (currentUid != null) {
+                        for (final f in friendships) {
+                          if (f.users.contains(targetId) && f.users.contains(currentUid)) {
+                            final lastMe = f.lastSnaps[currentUid];
+                            final lastThem = f.lastSnaps[targetId];
+                            if (lastMe != null && lastThem != null) {
+                              final now = DateTime.now();
+                              if (now.difference(lastMe).inHours <= 36 && now.difference(lastThem).inHours <= 36) {
+                                if (f.streakCount >= 1) {
+                                  finalStreakCount = f.streakCount;
+                                }
+                              }
                             }
+                            break;
                           }
                         }
-                      } catch (_) {
-                        // No friendship found
                       }
 
                       return GestureDetector(
@@ -639,9 +656,7 @@ class ChatCardItem extends StatelessWidget {
                         ),
                         child: Row(
                           children: [
-                            const Text('🔥', style: TextStyle(fontSize: 12))
-                                .animate(onPlay: (controller) => controller.repeat(reverse: true))
-                                .scaleXY(begin: 1.0, end: 1.2, duration: 1.seconds, curve: Curves.easeInOut),
+                            const Text('🔥', style: TextStyle(fontSize: 12)),
                             const SizedBox(width: 2),
                             Text(
                               '$streak',

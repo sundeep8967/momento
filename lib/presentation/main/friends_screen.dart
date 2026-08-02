@@ -58,11 +58,11 @@ class _FriendsScreenState extends State<FriendsScreen>
       final pending = await FriendsRepository.instance.getPendingRequests();
       final me = await FriendsRepository.instance.getMyProfile();
       
+      final profiles = await Future.wait(pending.map((req) => FriendsRepository.instance.getUserProfile(req.requestedBy)));
       final requesterUsernames = <String, String>{};
-      for (final req in pending) {
-        final profile = await FriendsRepository.instance.getUserProfile(req.requestedBy);
-        if (profile != null) {
-          requesterUsernames[req.requestedBy] = profile.username;
+      for (int i = 0; i < pending.length; i++) {
+        if (profiles[i] != null) {
+          requesterUsernames[pending[i].requestedBy] = profiles[i]!.username;
         }
       }
 

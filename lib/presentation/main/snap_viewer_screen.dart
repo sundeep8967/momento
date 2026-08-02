@@ -133,6 +133,28 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
     }
   }
 
+  String _getPosterUrl(DirectSnap snap) {
+    if (snap.videoUrl.isEmpty) return '';
+    if (!snap.isVideo) return snap.videoUrl;
+    if (snap.videoUrl.contains('/upload/')) {
+      return snap.videoUrl
+          .replaceAll('/upload/', '/upload/f_jpg,q_auto,so_0/')
+          .replaceAll(RegExp(r'\.(mp4|mov|mkv|avi|webm)$', caseSensitive: false), '.jpg');
+    }
+    return snap.videoUrl;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    for (final snap in widget.snaps) {
+      final url = _getPosterUrl(snap);
+      if (url.isNotEmpty && url.startsWith('http')) {
+        precacheImage(NetworkImage(url), context);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.snaps.isEmpty) return const Scaffold(backgroundColor: Colors.black);
@@ -142,32 +164,11 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Media Player
+          // Instant Media Player & Poster Masking
           if (_isError)
             const Center(child: Text('Failed to load media', style: TextStyle(color: Colors.white)))
-          else if (!currentSnap.isVideo)
-            GestureDetector(
-              onTap: _togglePlayPause,
-              child: Transform.scale(
-                scaleX: currentSnap.isFrontCamera ? -1 : 1,
-                child: Image.network(currentSnap.videoUrl, fit: BoxFit.contain),
-              ),
-            )
-          else if (_videoController != null && _videoController!.value.isInitialized)
-            GestureDetector(
-              onTap: _togglePlayPause,
-              onLongPress: () => _videoController?.pause(),
-              onLongPressUp: () => _videoController?.play(),
-              child: Transform.scale(
-                scaleX: currentSnap.isFrontCamera ? -1 : 1,
-                child: AspectRatio(
-                  aspectRatio: _videoController!.value.aspectRatio,
-                  child: VideoPlayer(_videoController!),
-                ),
-              ),
-            )
           else
-            const Center(child: CircularProgressIndicator(color: SetlogColors.brownPrimary)),
+            _buildMediaView(),
             
           // Top Overlay (Sender info)
           Positioned(
@@ -323,6 +324,56 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMediaView() {
+    final posterUrl = _getPosterUrl(currentSnap);
+    final isVideo = currentSnap.isVideo;
+    final isInitialized = _videoController != null && _videoController!.value.isInitialized;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 1. Video Player Layer (Active once initialized)
+        if (isVideo && isInitialized)
+          GestureDetector(
+            onTap: _togglePlayPause,
+            onLongPress: () => _videoController?.pause(),
+            onLongPressUp: () => _videoController?.play(),
+            child: Transform.scale(
+              scaleX: currentSnap.isFrontCamera ? -1 : 1,
+              child: AspectRatio(
+                aspectRatio: _videoController!.value.aspectRatio,
+                child: VideoPlayer(_videoController!),
+              ),
+            ),
+          ),
+
+        // 2. Instant Poster/Image Mask (Renders instantly 0ms, fades out when video starts)
+        if (!isVideo || !isInitialized)
+          GestureDetector(
+            onTap: _togglePlayPause,
+            child: Transform.scale(
+              scaleX: currentSnap.isFrontCamera ? -1 : 1,
+              child: Image.network(
+                posterUrl,
+                fit: BoxFit.contain,
+                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                  if (wasSynchronouslyLoaded) return child;
+                  return AnimatedOpacity(
+                    opacity: frame == null ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 150),
+                    child: child,
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) => const Center(
+                  child: Icon(Icons.broken_image, color: Colors.white54, size: 48),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
