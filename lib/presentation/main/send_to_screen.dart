@@ -327,9 +327,76 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                               ),
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          // Info button
+                          GestureDetector(
+                            onTap: () => showDialog(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                title: const Text('Map Options', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                                content: const Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('🌍 ', style: TextStyle(fontSize: 18)),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text('Local Map', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                                              SizedBox(height: 2),
+                                              Text('Makes this snap visible to anyone who is physically nearby. Anyone in the area can discover and view it.', style: TextStyle(fontSize: 13, color: Colors.black54)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 16),
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('📍 ', style: TextStyle(fontSize: 18)),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text('Drop on Map', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                                              SizedBox(height: 2),
+                                              Text('Pins this snap to your current location. Friends must physically walk to this spot to unlock and view it.', style: TextStyle(fontSize: 13, color: Colors.black54)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('Got it', style: TextStyle(color: SetlogColors.momentoPink, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                border: Border.all(color: SetlogColors.authStrokeSoft),
+                              ),
+                              child: const Icon(CupertinoIcons.info, size: 15, color: SetlogColors.collectionsHomeTextSecondary),
+                            ),
+                          ),
                         ],
                       ),
                     ),
+
 
                     if (_groups.isNotEmpty) ...[
                       const Padding(
