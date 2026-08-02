@@ -755,24 +755,39 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: Colors.white,
-              size: 26,
-              shadows: const [
-                Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
-              ],
+            // Frosted Glass Circle for the Icon
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.25),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      icon,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 6),
             Text(
               label,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 11,
-                fontWeight: FontWeight.w500,
-                letterSpacing: -0.3,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
                 shadows: [
-                  Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
+                  Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1)),
                 ],
               ),
             ),
