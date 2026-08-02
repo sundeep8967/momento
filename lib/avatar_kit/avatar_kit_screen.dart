@@ -66,11 +66,25 @@ class _AvatarKitScreenState extends State<AvatarKitScreen>
     setState(() => _avatar = updated);
   }
 
+  /// Convert a camelCase or lowercase string to a human-readable label.
+  /// e.g. 'shortCurly' → 'Short Curly', 'blazerAndShirt' → 'Blazer And Shirt'
+  String _label(String raw) {
+    if (raw == 'none') return 'None';
+    // Insert space before uppercase letters
+    final spaced = raw.replaceAllMapped(
+      RegExp(r'([A-Z])'),
+      (m) => ' ${m.group(0)}',
+    );
+    // Capitalise first letter of each word
+    return spaced.trim().split(' ').map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
+  }
+
   Future<void> _save() async {
     setState(() => _isSaving = true);
     try {
       final json = jsonEncode({
         'seed': _avatar.seed,
+        'style': _avatar.style.name, // must be saved so it round-trips correctly
         'skinColor': _avatar.skinColor,
         'top': _avatar.top,
         'hairColor': _avatar.hairColor,
@@ -563,15 +577,15 @@ class _AvatarKitScreenState extends State<AvatarKitScreen>
       Padding(
         padding: padding ?? const EdgeInsets.fromLTRB(20, 20, 20, 12),
         child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: 10,
+          runSpacing: 10,
           children: items.map((item) {
             final isSelected = selected == item;
             return GestureDetector(
               onTap: () => onTap(item),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: isSelected ? SetlogColors.momentoPink : Colors.black.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(20),
@@ -580,10 +594,11 @@ class _AvatarKitScreenState extends State<AvatarKitScreen>
                   ),
                 ),
                 child: Text(
-                  item,
+                  _label(item),
                   style: TextStyle(
                     color: isSelected ? Colors.white : Colors.black87,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontSize: 13,
                   ),
                 ),
               ),

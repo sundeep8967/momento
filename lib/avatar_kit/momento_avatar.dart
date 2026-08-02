@@ -62,10 +62,14 @@ class MomentoAvatar {
       if (top != 'none') 'topVariant': [top],
       if (hairColor != 'none') 'hairColor': [hairColor],
       if (hatColor != 'none') 'hatColor': [hatColor],
+      // Accessories: probability=0 forces hidden when 'none' (default SDK prob is 10%)
+      'accessoriesProbability': accessories == 'none' ? 0 : 100,
       if (accessories != 'none') 'accessoriesVariant': [accessories],
-      if (accessoriesColor != 'none') 'accessoriesColor': [accessoriesColor],
+      if (accessories != 'none' && accessoriesColor != 'none') 'accessoriesColor': [accessoriesColor],
+      // Facial hair: probability=0 forces hidden when 'none' (default SDK prob is 10%)
+      'facialHairProbability': facialHair == 'none' ? 0 : 100,
       if (facialHair != 'none') 'facialHairVariant': [facialHair],
-      if (facialHairColor != 'none') 'facialHairColor': [facialHairColor],
+      if (facialHair != 'none' && facialHairColor != 'none') 'facialHairColor': [facialHairColor],
       if (clothes != 'none') 'clothesVariant': [clothes],
       if (clothesColor != 'none') 'clothesColor': [clothesColor],
       if (clothesGraphic != 'none') 'clothesGraphicVariant': [clothesGraphic],

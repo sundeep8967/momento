@@ -13,7 +13,6 @@ import '../presentation/main/friend_log_viewer_screen.dart';
 import '../presentation/main/own_log_viewer_screen.dart';
 import '../presentation/main/friends_screen.dart';
 import '../presentation/main/profile_screen.dart';
-import '../presentation/main/avatar_customizer_screen.dart';
 import '../presentation/main/tea_screen.dart';
 import '../presentation/main/chat_screen.dart';
 import '../avatar_kit/avatar_kit_screen.dart';
@@ -125,7 +124,8 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: 'avatar-customizer',
-          builder: (context, state) => const AvatarCustomizerScreen(),
+          // Redirected to avatar-kit — API-based screen removed, using offline SDK only
+          builder: (context, state) => const AvatarKitScreen(),
         ),
         GoRoute(
           path: 'avatar-kit',
