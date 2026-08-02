@@ -216,8 +216,37 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
 
               // Chat Cards List
               if (entries.isEmpty)
-                SliverList(
-                  delegate: SliverChildListDelegate(_buildStaticSampleCards()),
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          CupertinoIcons.chat_bubble_2,
+                          size: 56,
+                          color: SetlogColors.momentoPink.withValues(alpha: 0.3),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No Momentos yet',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1C1C1E),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Add friends and send your first Momento!',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF8E8E93),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 )
               else
                 SliverList(
@@ -502,71 +531,6 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
     );
   }
 
-  List<Widget> _buildStaticSampleCards() {
-    return const [
-      ChatCardItem(
-        name: 'Chloe Miller',
-        status: 'NEW MOMENTO • TAP TO VIEW',
-        statusColor: SetlogColors.momentoPink,
-        time: '2M',
-        avatarSeed: 'Chloe',
-        isNew: true,
-        isVideo: false,
-      ),
-      ChatCardItem(
-        name: 'Alex Rivera',
-        status: 'Delivered',
-        statusColor: Color(0xFF666666),
-        time: '14M',
-        avatarSeed: 'Alex',
-        isDelivered: true,
-        isNew: false,
-        isVideo: false,
-      ),
-      ChatCardItem(
-        name: 'Jordan Wu',
-        status: 'Opened',
-        statusColor: Color(0xFF888888),
-        time: '1H',
-        avatarSeed: 'Jordan',
-        isOpened: true,
-        isNew: false,
-        isVideo: false,
-      ),
-      ChatCardItem(
-        name: 'Sarah Jenkins',
-        status: 'Received • Chat',
-        statusColor: Color(0xFF007AFF),
-        time: '3H',
-        avatarSeed: 'Sarah',
-        isOpened: false,
-        isNew: false,
-        isVideo: false,
-        isChatReceived: true,
-      ),
-      ChatCardItem(
-        name: 'Liam Tech',
-        status: 'Received • Moment',
-        statusColor: SetlogColors.snapViewerAccent,
-        time: '4H',
-        streak: 24,
-        avatarSeed: 'Liam',
-        isOpened: false,
-        isNew: false,
-        isVideo: true,
-      ),
-      ChatCardItem(
-        name: 'Mia Sunshine',
-        status: 'Opened',
-        statusColor: Color(0xFF888888),
-        time: 'YESTERDAY',
-        avatarSeed: 'Mia',
-        isOpened: true,
-        isNew: false,
-        isVideo: false,
-      ),
-    ];
-  }
 }
 
 class ChatCardItem extends StatelessWidget {

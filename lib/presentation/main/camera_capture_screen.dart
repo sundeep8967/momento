@@ -43,6 +43,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   bool _showStreakCelebration = false;
   int _currentStreak = 0;
   int _dualCameraTapCount = 0; // Tracks dual camera button states: 0=off, 1=on, 2=swapped
+  List<CameraDescription>? _availableCamerasCache;
+
+  Future<List<CameraDescription>> _getAvailableCameras() async {
+    _availableCamerasCache ??= await availableCameras();
+    return _availableCamerasCache!;
+  }
 
   @override
   void initState() {
@@ -93,14 +99,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   Future<void> _initCamera() async {
     try {
-      final cameras = await availableCameras();
+      final cameras = await _getAvailableCameras();
       if (cameras.isEmpty) return;
-      final frontCamera = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.front,
+      final targetLens = _isFrontCamera ? CameraLensDirection.front : CameraLensDirection.back;
+      final selectedCamera = cameras.firstWhere(
+        (c) => c.lensDirection == targetLens,
         orElse: () => cameras.first,
       );
       _cameraController = CameraController(
-        frontCamera,
+        selectedCamera,
         ResolutionPreset.medium, // 'medium' is much safer for Android hardware encoders to avoid green glitch artifacts
         enableAudio: true,
       );
@@ -140,7 +147,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       // Reinitialize camera when returning to app
       _initCamera();
       if (_isDualCamera) {
-        _toggleDualCamera(); // This will re-initialize the PiP camera
+        _initPipCamera();
       }
     }
   }
@@ -251,7 +258,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   Future<void> _switchCamera() async {
     HapticFeedback.mediumImpact();
     try {
-      final cameras = await availableCameras();
+      final cameras = await _getAvailableCameras();
       if (cameras.length < 2) return;
       
       _isFrontCamera = !_isFrontCamera;
@@ -326,7 +333,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   Future<void> _initPipCamera() async {
     try {
-      final cameras = await availableCameras();
+      final cameras = await _getAvailableCameras();
       // PiP always shows the OPPOSITE lens from the main camera
       final pipLens = _isFrontCamera ? CameraLensDirection.back : CameraLensDirection.front;
       final pipCamera = cameras.firstWhere(

@@ -274,8 +274,8 @@ class SnapRepository {
   }
 
   Future<void> _updatePairwiseStreaks(String senderUid, List<String> friendUids) async {
-    for (final friendUid in friendUids) {
-      if (friendUid == senderUid) continue;
+    await Future.wait(friendUids.map((friendUid) async {
+      if (friendUid == senderUid) return;
       
       final sorted = [senderUid, friendUid]..sort();
       final docId = '${sorted[0]}__${sorted[1]}';
@@ -315,13 +315,13 @@ class SnapRepository {
           if (isOtherActive) {
             // 12-hour cooldown
             if (lastIncrement == null || now.difference(lastIncrement).inHours >= 12) {
-              currentStreak++;
-              tx.update(docRef, {
+               currentStreak++;
+               tx.update(docRef, {
                 'lastSnaps': lastSnaps,
                 'streakCount': currentStreak,
                 'lastStreakIncrement': FieldValue.serverTimestamp(),
-              });
-              return;
+               });
+               return;
             }
           } else {
             // Other hasn't snapped in 36 hours. Streak broken.
@@ -337,7 +337,7 @@ class SnapRepository {
       } catch (e) {
         // fail silently for background streak update
       }
-    }
+    }));
   }
 
   Stream<List<DirectSnap>> getLocalSnapsStream() {

@@ -116,12 +116,22 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Future<void> _acceptRequest(String requesterUid) async {
     await FriendsRepository.instance.acceptRequest(requesterUid);
-    await _loadFriendData();
+    setState(() {
+      _pendingRequests.removeWhere((r) => r.requestedBy == requesterUid);
+    });
+    // Fetch just the accepted user's profile and add to friends list
+    final profile = await FriendsRepository.instance.getUserProfile(requesterUid);
+    if (profile != null && mounted) {
+      setState(() => _friends.add(profile));
+    }
   }
 
   Future<void> _declineRequest(String requesterUid) async {
     await FriendsRepository.instance.declineOrRemove(requesterUid);
-    await _loadFriendData();
+    setState(() {
+      _pendingRequests.removeWhere((r) => r.requestedBy == requesterUid);
+      _requesterUsernames.remove(requesterUid);
+    });
   }
 
   @override

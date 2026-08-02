@@ -6,6 +6,12 @@ import 'package:video_player/video_player.dart';
 import 'package:momento/data/snap_repository.dart';
 import 'package:momento/theme/colors.dart';
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../data/encryption_service.dart';
 
 class SnapViewerScreen extends ConsumerStatefulWidget {
   final List<DirectSnap> snaps;
@@ -25,6 +31,7 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
   bool _isPlaying = false;
   bool _isError = false;
   int _currentIndex = 0;
+  final TextEditingController _replyController = TextEditingController();
 
   DirectSnap get currentSnap => widget.snaps[_currentIndex];
 
@@ -127,7 +134,44 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
     _imageTimer?.cancel();
     _videoController?.removeListener(_videoListener);
     _videoController?.dispose();
+    _replyController.dispose();
     super.dispose();
+  }
+
+  Future<void> _sendQuickReply(String text) async {
+    final textSent = text.trim();
+    if (textSent.isEmpty) return;
+    
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    
+    _replyController.clear();
+    FocusScope.of(context).unfocus();
+    
+    final targetUid = currentSnap.senderUid;
+    final uids = [currentUser.uid, targetUid]..sort();
+    final chatId = uids.join('_');
+    final keyBytes = sha256.convert(utf8.encode('momento_e2e_secret_$chatId')).bytes;
+    final chatKey = Uint8List.fromList(keyBytes);
+    
+    final encryptedPayload = EncryptionService.encryptPayload(textSent, chatKey);
+    
+    await FirebaseFirestore.instance
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .add({
+      'senderId': currentUser.uid,
+      'receiverId': targetUid,
+      'encryptedText': encryptedPayload,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Message sent!'), duration: Duration(seconds: 1)),
+      );
+    }
   }
 
   void _togglePlayPause() {
@@ -299,9 +343,11 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(color: Colors.white30),
                     ),
-                    child: const TextField(
-                      style: TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: InputDecoration(
+                    child: TextField(
+                      controller: _replyController,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      onSubmitted: _sendQuickReply,
+                      decoration: const InputDecoration(
                         hintText: 'Send message...',
                         hintStyle: TextStyle(color: Colors.white60, fontSize: 14),
                         border: InputBorder.none,

@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
-import 'dart:math';
 
 class MatchRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -21,10 +20,6 @@ class MatchRepository {
       'timestamp': FieldValue.serverTimestamp(),
       'matchedWith': null,
     });
-    
-    // DISABLED: Mock user injection was polluting production Firestore.
-    // Remove this block entirely for release builds.
-    // _injectMockUsers(lat, lng, isSmokingMode: isSmokingMode);
   }
 
   /// Leaves the matchmaking pool
@@ -104,26 +99,5 @@ class MatchRepository {
         'matchedWith': currentUserId
       });
     } catch (_) {}
-  }
-
-  void _injectMockUsers(double baseLat, double baseLng, {bool isSmokingMode = false}) async {
-    // Inject 3 fake users at random nearby distances (1km to 15km)
-    final random = Random();
-    
-    for (int i = 1; i <= 3; i++) {
-      // Very rough lat/lng offset calculation for visual testing
-      // 1 degree is approx 111km
-      double latOffset = (random.nextDouble() - 0.5) * 0.1; 
-      double lngOffset = (random.nextDouble() - 0.5) * 0.1;
-      
-      await _firestore.collection('chai_matches').doc('mock_user_$i').set({
-        'uid': 'mock_user_$i',
-        'lat': baseLat + latOffset,
-        'lng': baseLng + lngOffset,
-        'isSmokingMode': isSmokingMode,
-        'timestamp': FieldValue.serverTimestamp(),
-        'matchedWith': null,
-      });
-    }
   }
 }
