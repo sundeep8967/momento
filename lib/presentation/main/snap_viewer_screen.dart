@@ -37,16 +37,24 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
   }
 
   Future<void> _loadSnap() async {
-    _isError = false;
-    _isPlaying = false;
-    setState(() {});
-    
-    _markAsViewed();
-
+    // Cancel any pending image timer from a previous snap
     _imageTimer?.cancel();
+
+    // Detach and dispose the old video controller first
     _videoController?.removeListener(_videoListener);
     await _videoController?.dispose();
     _videoController = null;
+
+    // Mark state synchronously — one rebuild only
+    if (mounted) {
+      setState(() {
+        _isError = false;
+        _isPlaying = false;
+      });
+    }
+
+    // Mark as viewed (fire-and-forget, no await needed — it's a background write)
+    unawaited(_markAsViewed());
 
     if (currentSnap.isVideo) {
       try {
@@ -54,21 +62,16 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
         await _videoController!.initialize();
         _videoController!.setLooping(false);
         _videoController!.addListener(_videoListener);
-        
+
         if (mounted) {
-          setState(() {});
+          setState(() => _isPlaying = true);
           _videoController!.play();
-          _isPlaying = true;
         }
       } catch (e) {
-        if (mounted) {
-          setState(() {
-            _isError = true;
-          });
-        }
+        if (mounted) setState(() => _isError = true);
       }
     } else {
-      // It's an image. Just set a 5-second timer.
+      // Image: show for 5 seconds then advance
       _imageTimer = Timer(const Duration(seconds: 5), () {
         if (mounted) _nextSnap();
       });
@@ -79,17 +82,24 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
   void _videoListener() {
     if (!mounted) return;
     if (_videoController == null) return;
-    
+
     final value = _videoController!.value;
-    if (value.isInitialized && value.position >= value.duration && !_isPlaying) {
-      // Video finished
+
+    // ── Auto-advance: video has reached its end ──────────────────────────────
+    // Use VideoPlayerValue.isPlaying (controller's own truth) not our cached flag.
+    // position >= duration signals completion; add 50ms guard to avoid false triggers
+    // when position briefly equals duration before the first frame.
+    if (value.isInitialized &&
+        !value.isPlaying &&
+        value.duration.inMilliseconds > 0 &&
+        value.position.inMilliseconds >= value.duration.inMilliseconds - 50) {
       _nextSnap();
-    } else {
-      if (_isPlaying != value.isPlaying) {
-        setState(() {
-          _isPlaying = value.isPlaying;
-        });
-      }
+      return;
+    }
+
+    // Sync local play state for UI (pause icon etc.)
+    if (_isPlaying != value.isPlaying) {
+      setState(() => _isPlaying = value.isPlaying);
     }
   }
 
@@ -253,9 +263,9 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.75),
+                  color: Colors.black.withValues(alpha: 0.75),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: SetlogColors.snapViewerAccent.withOpacity(0.6)),
+                  border: Border.all(color: SetlogColors.snapViewerAccent.withValues(alpha: 0.6)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -285,7 +295,7 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
                     height: 46,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(color: Colors.white30),
                     ),

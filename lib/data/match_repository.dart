@@ -22,8 +22,9 @@ class MatchRepository {
       'matchedWith': null,
     });
     
-    // For testing: Inject some fake users nearby so the radar isn't empty!
-    _injectMockUsers(lat, lng, isSmokingMode: isSmokingMode);
+    // DISABLED: Mock user injection was polluting production Firestore.
+    // Remove this block entirely for release builds.
+    // _injectMockUsers(lat, lng, isSmokingMode: isSmokingMode);
   }
 
   /// Leaves the matchmaking pool

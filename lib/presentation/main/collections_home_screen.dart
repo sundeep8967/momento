@@ -7,13 +7,9 @@ import 'package:momento/theme/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../avatar_kit/avatar_widget.dart';
 import '../../data/friends_repository.dart';
-import 'dart:convert';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:geolocator/geolocator.dart';
-import '../../theme/colors.dart';
 import '../../theme/smoking_mode_provider.dart';
 import '../../theme/friend_settings_provider.dart';
 
@@ -28,10 +24,15 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
   // Track which snap URLs we've already precached so we never schedule a
   // redundant addPostFrameCallback on subsequent stream rebuilds.
   final Set<String> _precachedIds = {};
+
+  // Shared location cache — avoids cold-start GPS blocking on tap.
+  // Written by snap_map_screen too; read here for geo-lock distance check.
+  static Position? _cachedPosition;
+
+
   @override
   Widget build(BuildContext context) {
     final myProfile = ref.watch(myProfileProvider).value;
-    final snapRepo = ref.read(snapRepositoryProvider);
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
     final inboxAsyncValue = ref.watch(groupedInboxStreamProvider);
     final sendingIds = ref.watch(sendingSnapsProvider);
@@ -83,6 +84,25 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
               
               return 0; // Maintain original time-based sort for others
             });
+          }
+          // ── O(1) streak lookup map: built ONCE before the list delegate ──
+          // Previously this was an O(N×M) loop inside every list-item builder.
+          final Map<String, int> streakByUid = {};
+          if (currentUid != null) {
+            final now = DateTime.now();
+            for (final f in friendships) {
+              final lastMe = f.lastSnaps[currentUid];
+              if (lastMe == null) continue;
+              final otherUid = f.users.firstWhere((u) => u != currentUid, orElse: () => '');
+              if (otherUid.isEmpty) continue;
+              final lastThem = f.lastSnaps[otherUid];
+              if (lastThem == null) continue;
+              if (now.difference(lastMe).inHours <= 36 &&
+                  now.difference(lastThem).inHours <= 36 &&
+                  f.streakCount >= 1) {
+                streakByUid[otherUid] = f.streakCount;
+              }
+            }
           }
 
           return CustomScrollView(
@@ -217,7 +237,6 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                       final unreadCount = userSnaps.where((s) => !s.isViewed).length;
                       // isNew = there are unread snaps. For self-snaps (isMe) we still want to open them.
                       final isNew = unreadCount > 0;
-                      final snapColor = snap.isVideo ? const Color(0xFFAB47BC) : SetlogColors.momentoPink;
                       final displayName = snap.groupName != null && snap.groupName!.isNotEmpty
                           ? snap.groupName!
                           : (targetId == currentUid)
@@ -251,25 +270,8 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                         }
                       }
 
-                      // Evaluate Pairwise Streak
-                      int? finalStreakCount;
-                      if (currentUid != null) {
-                        for (final f in friendships) {
-                          if (f.users.contains(targetId) && f.users.contains(currentUid)) {
-                            final lastMe = f.lastSnaps[currentUid];
-                            final lastThem = f.lastSnaps[targetId];
-                            if (lastMe != null && lastThem != null) {
-                              final now = DateTime.now();
-                              if (now.difference(lastMe).inHours <= 36 && now.difference(lastThem).inHours <= 36) {
-                                if (f.streakCount >= 1) {
-                                  finalStreakCount = f.streakCount;
-                                }
-                              }
-                            }
-                            break;
-                          }
-                        }
-                      }
+                      // O(1) streak lookup using the pre-built map
+                      final finalStreakCount = streakByUid[targetId];
 
                       return GestureDetector(
                         onLongPress: () {
@@ -283,19 +285,34 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
 
                             final firstSnap = unreadSnaps.first;
                             if (firstSnap.lat != null && firstSnap.lng != null) {
-                              // Check distance
-                              bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+                              // ── Fast geo-check: use cached position first (0ms) ──
+                              // If no cache, try getLastKnownPosition (fast), then
+                              // fall back to getCurrentPosition with a 3-second cap.
+                              // We never block the UI indefinitely.
                               double distance = 999999;
-                              if (serviceEnabled) {
-                                LocationPermission permission = await Geolocator.checkPermission();
-                                if (permission == LocationPermission.denied) {
-                                  permission = await Geolocator.requestPermission();
+                              try {
+                                Position? pos = _cachedPosition;
+                                if (pos == null) {
+                                  pos = await Geolocator.getLastKnownPosition();
                                 }
-                                if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-                                  final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-                                  distance = Geolocator.distanceBetween(pos.latitude, pos.longitude, firstSnap.lat!, firstSnap.lng!);
+                                if (pos == null) {
+                                  final perm = await Geolocator.checkPermission();
+                                  if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
+                                    pos = await Geolocator.getCurrentPosition(
+                                      locationSettings: const LocationSettings(
+                                        accuracy: LocationAccuracy.medium,
+                                        timeLimit: Duration(seconds: 3),
+                                      ),
+                                    ).timeout(const Duration(seconds: 3), onTimeout: () async => pos!);
+                                  }
                                 }
-                              }
+                                if (pos != null) {
+                                  _cachedPosition = pos;
+                                  distance = Geolocator.distanceBetween(
+                                      pos.latitude, pos.longitude,
+                                      firstSnap.lat!, firstSnap.lng!);
+                                }
+                              } catch (_) {}
 
                               if (distance <= 50) {
                                 if (context.mounted) {

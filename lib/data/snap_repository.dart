@@ -217,27 +217,30 @@ class SnapRepository {
       _updatePairwiseStreaks(uid, friendUids);
     }
 
-    // Fire push notifications to all recipients (skip sender's own copy)
+    // Fire push notifications to all recipients concurrently (not sequentially)
     final notifUids = <String>{
       ...friendUids,
       for (final g in groups) ...g.members,
     }..remove(uid); // sender doesn't need a notification for their own snap
 
-    for (final recipientUid in notifUids) {
-      try {
-        final recipientDoc = await _db.collection('users').doc(recipientUid).get();
-        final fcmToken = recipientDoc.data()?['fcmToken'] as String?;
-        if (fcmToken != null && fcmToken.isNotEmpty) {
-          await PushNotificationService.instance.sendPushNotification(
-            targetToken: fcmToken,
-            title: '📸 @$senderUsername sent you a Momento!',
-            body: isVideo ? 'Tap to watch before it disappears.' : 'Tap to view before it disappears.',
-          );
+    // Fetch all recipient docs in parallel, then fire all push calls in parallel
+    await Future.wait(
+      notifUids.map((recipientUid) async {
+        try {
+          final recipientDoc = await _db.collection('users').doc(recipientUid).get();
+          final fcmToken = recipientDoc.data()?['fcmToken'] as String?;
+          if (fcmToken != null && fcmToken.isNotEmpty) {
+            await PushNotificationService.instance.sendPushNotification(
+              targetToken: fcmToken,
+              title: '📸 @$senderUsername sent you a Momento!',
+              body: isVideo ? 'Tap to watch before it disappears.' : 'Tap to view before it disappears.',
+            );
+          }
+        } catch (_) {
+          // Never let a failed notification break the snap send
         }
-      } catch (_) {
-        // Never let a failed notification break the snap send
-      }
-    }
+      }),
+    );
   }
 
   // ── Public Local Snaps ──

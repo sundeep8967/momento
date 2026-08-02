@@ -32,6 +32,11 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
   List<DirectSnap> _inboxSnaps = [];
   List<DirectSnap> _localSnaps = [];
 
+  // ── Spiderfy cache: only recompute when snaps or location actually change ──
+  List<(DirectSnap, LatLng)> _cachedPositioned = [];
+  bool _positionedDirty = true;
+
+
   @override
   void initState() {
     super.initState();
@@ -183,7 +188,13 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
   Widget build(BuildContext context) {
     final snapRepo = ref.read(snapRepositoryProvider);
     final activeSnaps = _selectedTab == 0 ? _inboxSnaps : _localSnaps;
-    final positioned = _computePositioned(activeSnaps);
+
+    // Only re-run expensive spiderfy geometry when snaps or location actually changed
+    if (_positionedDirty) {
+      _cachedPositioned = _computePositioned(activeSnaps);
+      _positionedDirty = false;
+    }
+    final positioned = _cachedPositioned;
 
     return Scaffold(
       body: Stack(
@@ -262,13 +273,17 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
                 if (mounted && snapshot.hasData) {
                   final fresh = snapshot.data!;
                   if (fresh.length != _inboxSnaps.length) {
-                    setState(() => _inboxSnaps = fresh);
+                    setState(() {
+                      _inboxSnaps = fresh;
+                      _positionedDirty = true;
+                    });
                   }
                 }
               });
               return const SizedBox.shrink();
             },
           ),
+
           StreamBuilder<List<DirectSnap>>(
             stream: snapRepo.getLocalSnapsStream(),
             builder: (context, snapshot) {
@@ -276,13 +291,17 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
                 if (mounted && snapshot.hasData) {
                   final fresh = snapshot.data!;
                   if (fresh.length != _localSnaps.length) {
-                    setState(() => _localSnaps = fresh);
+                    setState(() {
+                      _localSnaps = fresh;
+                      _positionedDirty = true;
+                    });
                   }
                 }
               });
               return const SizedBox.shrink();
             },
           ),
+
 
           // ── 3. Floating UI Layer ──────────────────────────────────────────
           SafeArea(
@@ -353,7 +372,7 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
                                       color: Colors.black))),
                         },
                         onValueChanged: (val) {
-                          if (val != null) setState(() => _selectedTab = val);
+                          if (val != null) setState(() { _selectedTab = val; _positionedDirty = true; });
                         },
                       ),
                     ),
