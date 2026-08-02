@@ -5,14 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:momento/avatar_kit/avatar_widget.dart';
-import 'package:momento/avatar_kit/momento_avatar.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:momento/data/friends_repository.dart';
 import 'package:momento/data/snap_repository.dart';
 import 'package:momento/data/cloudinary_service.dart';
 import 'package:momento/data/local_cache.dart';
 import 'package:momento/theme/colors.dart';
-import '../../avatar_kit/avatar_widget.dart';
 
 class SendToScreen extends ConsumerStatefulWidget {
   final String mediaPath;
@@ -175,8 +173,8 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
           await snapRepo.sendLocalSnap(
             videoUrl: mediaUrl,
             isVideo: isVideo,
-            lat: lat!,
-            lng: lng!,
+            lat: lat,
+            lng: lng,
           );
         }
 
