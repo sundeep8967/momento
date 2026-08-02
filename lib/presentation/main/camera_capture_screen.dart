@@ -8,6 +8,7 @@ import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/log_repository.dart';
 import '../../theme/colors.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -55,6 +56,38 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           _stopRecording();
         }
       });
+      
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkTshirtPromo();
+    });
+  }
+
+  Future<void> _checkTshirtPromo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenPromo = prefs.getBool('has_seen_tshirt_promo') ?? false;
+    if (!hasSeenPromo && mounted) {
+      await prefs.setBool('has_seen_tshirt_promo', true);
+      _showTshirtPromo();
+    }
+  }
+
+  void _showTshirtPromo() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: const [
+            Text('👕', style: TextStyle(fontSize: 24)),
+            SizedBox(width: 12),
+            Expanded(child: Text('Get a 100 day streak and claim a FREE T-Shirt!', style: TextStyle(fontWeight: FontWeight.bold))),
+          ],
+        ),
+        backgroundColor: SetlogColors.momentoPink,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        margin: const EdgeInsets.only(bottom: 120, left: 20, right: 20),
+        duration: const Duration(seconds: 5),
+      ),
+    );
   }
 
   Future<void> _initCamera() async {

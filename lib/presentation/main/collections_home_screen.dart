@@ -45,8 +45,8 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
           var entries = List.of(originalEntries);
           if (pinnedBffUid != null) {
             entries.sort((a, b) {
-              final aTarget = a.first.groupName ?? (a.first.senderUid == currentUid ? a.first.receiverUid : a.first.senderUid);
-              final bTarget = b.first.groupName ?? (b.first.senderUid == currentUid ? b.first.receiverUid : b.first.senderUid);
+              final aTarget = a.first.groupName ?? a.first.senderUid;
+              final bTarget = b.first.groupName ?? b.first.senderUid;
               
               if (aTarget == pinnedBffUid && bTarget != pinnedBffUid) return -1;
               if (bTarget == pinnedBffUid && aTarget != pinnedBffUid) return 1;
@@ -197,7 +197,7 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                       userSnaps.sort((a, b) => b.timestamp.compareTo(a.timestamp));
                       final snap = userSnaps.first;
                       final isMe = snap.senderUid == currentUid;
-                      final targetId = snap.groupName ?? (isMe ? snap.receiverUid : snap.senderUid);
+                      final targetId = snap.groupName ?? snap.senderUid;
                       final isPinned = targetId == pinnedBffUid;
                       final isSending = sendingIds.contains(targetId);
 
