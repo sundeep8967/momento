@@ -322,20 +322,16 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                           GestureDetector(
                             onTap: () {
                               setState(() {
-                                bool allSelected = _selectedGroupIds.length == _groups.length && _postToLocal && _dropOnMap;
+                                bool allSelected = _groups.isNotEmpty && _selectedGroupIds.length == _groups.length;
                                 if (allSelected) {
                                   _selectedGroupIds.clear();
-                                  _postToLocal = false;
-                                  _dropOnMap = false;
                                 } else {
                                   _selectedGroupIds.addAll(_groups.map((g) => g.id));
-                                  _postToLocal = true;
-                                  _dropOnMap = true;
                                 }
                               });
                             },
                             child: Text(
-                              (_selectedGroupIds.length == _groups.length && _postToLocal && _dropOnMap) ? 'None' : 'All',
+                              (_groups.isNotEmpty && _selectedGroupIds.length == _groups.length) ? 'None' : 'All',
                               style: const TextStyle(color: SetlogColors.momentoPink, fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -458,49 +454,90 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                           ],
                         ),
                       ),
-                      Container(
-                        color: SetlogColors.authSurface,
-                        child: Column(
-                          children: _friends.map((friend) {
+                      ListView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          itemCount: _friends.length,
+                          itemBuilder: (context, index) {
+                            final friend = _friends[index];
                             final isSelected = _selectedFriendUids.contains(friend.uid);
-                                return Column(
-                              children: [
-                                ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                                  leading: friend.avatar != null
-                                      ? AvatarWidget(avatar: friend.avatar!, size: 40)
-                                      : CircleAvatar(
-                                          backgroundColor: SetlogColors.brownPrimary.withOpacity(0.1),
-                                          child: Text(
-                                            friend.username.isNotEmpty ? friend.username[0].toUpperCase() : '?',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, color: SetlogColors.brownPrimary),
-                                          ),
+                            final displayName = friend.uid == FirebaseAuth.instance.currentUser?.uid 
+                                ? '${friend.username} (Myself)' 
+                                : friend.username;
+
+                            return GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {
+                                setState(() {
+                                  if (isSelected) _selectedFriendUids.remove(friend.uid);
+                                  else _selectedFriendUids.add(friend.uid);
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                child: Row(
+                                  children: [
+                                    // Avatar with Border
+                                    Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: isSelected ? SetlogColors.momentoPink : const Color(0xFFEEEEEE),
+                                          width: 2,
                                         ),
-                                  title: Text(
-                                    friend.uid == FirebaseAuth.instance.currentUser?.uid 
-                                        ? '${friend.username} (Myself)' 
-                                        : friend.username, 
-                                    style: const TextStyle(fontWeight: FontWeight.w500, color: SetlogColors.collectionsHomeTextPrimary)
-                                  ),
-                                  trailing: Icon(
-                                    isSelected ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
-                                    color: isSelected ? SetlogColors.brownPrimary : CupertinoColors.systemGrey4,
-                                    size: 28,
-                                  ),
-                                  onTap: () {
-                                    setState(() {
-                                      if (isSelected) _selectedFriendUids.remove(friend.uid);
-                                      else _selectedFriendUids.add(friend.uid);
-                                    });
-                                  },
+                                      ),
+                                      child: friend.avatar != null
+                                          ? AvatarWidget(avatar: friend.avatar!, size: 48)
+                                          : CircleAvatar(
+                                              radius: 24,
+                                              backgroundColor: SetlogColors.brownPrimary.withOpacity(0.1),
+                                              child: Text(
+                                                friend.username.isNotEmpty ? friend.username[0].toUpperCase() : '?',
+                                                style: const TextStyle(fontWeight: FontWeight.bold, color: SetlogColors.brownPrimary, fontSize: 20),
+                                              ),
+                                            ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    // Name and Username
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            displayName,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.black,
+                                              letterSpacing: -0.2,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            friend.displayName.isNotEmpty ? friend.displayName : 'Friend',
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                              color: Color(0xFF999999),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    // Checkmark
+                                    Icon(
+                                      isSelected ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
+                                      color: isSelected ? SetlogColors.momentoPink : const Color(0xFFE5E5EA),
+                                      size: 28,
+                                    ),
+                                  ],
                                 ),
-                                if (friend != _friends.last)
-                                  const Divider(height: 1, indent: 76, color: SetlogColors.authStrokeSoft),
-                              ],
+                              ),
                             );
-                          }).toList(),
+                          },
                         ),
-                      ),
                     ],
                   ],
                 ),
