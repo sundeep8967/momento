@@ -241,7 +241,13 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
                           ),
                           child: IconButton(
                             icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
-                            onPressed: () => context.pop(),
+                            onPressed: () {
+                              if (context.canPop()) {
+                                context.pop();
+                              } else {
+                                context.go('/main');
+                              }
+                            },
                           ),
                         ),
                       ),
