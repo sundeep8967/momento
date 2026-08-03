@@ -258,24 +258,11 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              width: 52,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: SetlogColors.snapViewerAccent,
-                                  width: 2.5,
-                                ),
-                              ),
-                              child: ClipOval(
-                                child: AvatarWidget(
-                                  avatar: MomentoAvatar.fromSeed(snap.senderUid),
-                                  size: 48,
-                                  showBorder: false,
-                                  showGlow: false,
-                                ),
-                              ),
+                            AvatarWidget(
+                              avatar: MomentoAvatar.fromSeed(snap.senderUid),
+                              size: 50,
+                              showBorder: true,
+                              showGlow: true,
                             ),
                             const SizedBox(height: 4),
                             Container(
@@ -285,7 +272,7 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                snap.senderUsername,
+                                snap.senderUid == FirebaseAuth.instance.currentUser?.uid ? 'Me' : snap.senderUsername,
                                 style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
