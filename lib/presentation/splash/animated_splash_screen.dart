@@ -31,7 +31,7 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen> {
     try {
       final profile = await FriendsRepository.instance.getMyProfile();
       if (mounted) {
-        if (profile == null) {
+        if (profile == null || profile.username.isEmpty) {
           context.go('/auth/username');
         } else {
           context.go('/main');

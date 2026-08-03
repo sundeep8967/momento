@@ -91,5 +91,15 @@ service cloud.firestore {
       allow read: if isAuth();
       allow write: if isMe(matchId);
     }
+
+    // ── Local Snaps (Map Snaps) ───────────────────────────────
+    // Any authenticated user can read all map snaps (friends discovering snaps on the map)
+    // Only the sender can create their own snap (senderUid must match auth uid)
+    // Only the sender can delete their own snap
+    match /local_snaps/{snapId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.senderUid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.senderUid == request.auth.uid;
+    }
   }
 }

@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -10,8 +10,13 @@ import 'package:go_router/go_router.dart';
 import 'package:momento/theme/colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:momento/avatar_kit/avatar_widget.dart';
+import 'dart:ui';
 import 'package:momento/avatar_kit/momento_avatar.dart';
 import 'package:momento/data/algorithms.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:timeago/timeago.dart' as timeago;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SnapMapScreen extends ConsumerStatefulWidget {
   const SnapMapScreen({super.key});
@@ -32,14 +37,47 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
   List<DirectSnap> _inboxSnaps = [];
   List<DirectSnap> _localSnaps = [];
 
-  // ── Spiderfy cache: only recompute when snaps or location actually change ──
-  List<(DirectSnap, LatLng)> _cachedPositioned = [];
+  // ── Cluster cache: only recompute when snaps or location actually change ──
+  List<(List<DirectSnap>, LatLng)> _cachedClusters = [];
   bool _positionedDirty = true;
+  List<DirectSnap>? _selectedCluster;
+  int _carouselIndex = 0;
+
+  // ── Geocoding cache ────────────────────────────────────────────────────────
+  // Key: "lat,lng" (rounded to 3dp) → resolved place name
+  final Map<String, String> _placeCache = {};
+
+  Future<String> _getPlaceName(double lat, double lng) async {
+    final key = '${lat.toStringAsFixed(3)},${lng.toStringAsFixed(3)}';
+    if (_placeCache.containsKey(key)) return _placeCache[key]!;
+    try {
+      final placemarks = await placemarkFromCoordinates(lat, lng);
+      if (placemarks.isNotEmpty) {
+        final p = placemarks.first;
+        final name = [p.subLocality, p.locality]
+            .where((s) => s != null && s.isNotEmpty)
+            .join(', ');
+        final result = name.isNotEmpty ? name : (p.country ?? 'Unknown');
+        _placeCache[key] = result;
+        return result;
+      }
+    } catch (_) {}
+    _placeCache[key] = 'Unknown';
+    return 'Unknown';
+  }
 
 
   @override
   void initState() {
     super.initState();
+    // Temporary fix for missing username
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+        {'username': 'Sundeep'},
+        SetOptions(merge: true),
+      );
+    }
     // Use the cached location immediately — zero wait, no jump
     _currentLocation = _cachedUserLocation;
     _fetchLocation();
@@ -98,8 +136,8 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
     }
   }
 
-  // ── Build marker positions (spiderfy overlapping snaps) ───────────────────
-  List<(DirectSnap, LatLng)> _computePositioned(List<DirectSnap> snaps) {
+  // ── Build marker positions (cluster overlapping snaps) ───────────────────
+  List<(List<DirectSnap>, LatLng)> _computeClusters(List<DirectSnap> snaps) {
     List<DirectSnap> mapSnaps;
     if (_selectedTab == 1 && _currentLocation != null) {
       final grid = SpatialHashGrid<DirectSnap>(cellSizeDegrees: 0.05);
@@ -123,41 +161,27 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
       buckets.putIfAbsent('$lat,$lng', () => []).add(i);
     }
 
-    const double slotDeg = 0.0004;
-    const double baseRadius = 0.0003;
-
-    final List<(DirectSnap, LatLng)> positioned = [];
+    final List<(List<DirectSnap>, LatLng)> clusters = [];
     for (final entry in buckets.entries) {
       final indices = entry.value;
       final centre = LatLng(mapSnaps[indices.first].lat!, mapSnaps[indices.first].lng!);
+      final clusterSnaps = indices.map((i) => mapSnaps[i]).toList();
+      clusters.add((clusterSnaps, centre));
+    }
+    return clusters;
+  }
 
-      if (indices.length == 1) {
-        positioned.add((mapSnaps[indices.first], centre));
-        continue;
-      }
-
-      int placed = 0;
-      int ring = 1;
-      while (placed < indices.length) {
-        final double r = baseRadius * ring;
-        final int capacity = math.max(4, (2 * math.pi * r / slotDeg).floor());
-        final int toPlace = math.min(capacity, indices.length - placed);
-        for (int j = 0; j < toPlace; j++) {
-          final double angle = (2 * math.pi * j / toPlace) - math.pi / 2;
-          positioned.add((
-            mapSnaps[indices[placed + j]],
-            LatLng(
-              centre.latitude + r * math.cos(angle),
-              centre.longitude +
-                  r * math.sin(angle) / math.cos(centre.latitude * math.pi / 180),
-            ),
-          ));
-        }
-        placed += toPlace;
-        ring++;
+  void _openDirections(DirectSnap snap) async {
+    if (snap.lat == null || snap.lng == null) return;
+    final url = Uri.parse('https://maps.apple.com/?daddr=${snap.lat},${snap.lng}');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      final fallbackUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=${snap.lat},${snap.lng}');
+      if (await canLaunchUrl(fallbackUrl)) {
+        await launchUrl(fallbackUrl);
       }
     }
-    return positioned;
   }
 
   void _onSnapTapped(DirectSnap snap) {
@@ -174,13 +198,7 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
     if (distance <= 50) {
       context.push('/main/snap_viewer', extra: [snap]);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              '📍 Get closer! You must be within 50 meters to unlock this Momento. You are ${distance.toStringAsFixed(0)}m away.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      _openDirections(snap);
     }
   }
 
@@ -189,12 +207,12 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
     final snapRepo = ref.read(snapRepositoryProvider);
     final activeSnaps = _selectedTab == 0 ? _inboxSnaps : _localSnaps;
 
-    // Only re-run expensive spiderfy geometry when snaps or location actually changed
+    // Only re-run expensive cluster geometry when snaps or location actually changed
     if (_positionedDirty) {
-      _cachedPositioned = _computePositioned(activeSnaps);
+      _cachedClusters = _computeClusters(activeSnaps);
       _positionedDirty = false;
     }
-    final positioned = _cachedPositioned;
+    final clusters = _cachedClusters;
 
     return Scaffold(
       body: Stack(
@@ -220,66 +238,27 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
                   if (_currentLocation != null)
                     Marker(
                       point: _currentLocation!,
-                      width: 80,
-                      height: 80,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AvatarWidget(
-                            avatar: MomentoAvatar.fromSeed(
-                                FirebaseAuth.instance.currentUser?.uid ?? 'momento'),
-                            size: 50,
-                            showBorder: true,
-                            showGlow: true,
-                          ),
-                          const SizedBox(height: 2),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.6),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Text(
-                              'Me',
-                              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ],
-                      ),
+                      width: 100,
+                      height: 100,
+                        child: _buildPointyMarker(
+                          MomentoAvatar.fromSeed(FirebaseAuth.instance.currentUser?.uid ?? 'momento'),
+                          'Me',
+                        ),
                     ),
-                  ...positioned.map((entry) {
-                    final (snap, point) = entry;
+                  ...clusters.map((entry) {
+                    final (clusterSnaps, point) = entry;
                     return Marker(
                       point: point,
-                      width: 90,
-                      height: 90,
+                      width: 140,
+                      height: 145,
                       child: GestureDetector(
-                        onTap: () => _onSnapTapped(snap),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AvatarWidget(
-                              avatar: MomentoAvatar.fromSeed(snap.senderUid),
-                              size: 50,
-                              showBorder: true,
-                              showGlow: true,
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.6),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                snap.senderUid == FirebaseAuth.instance.currentUser?.uid ? 'Me' : snap.senderUsername,
-                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
+                        onTap: () {
+                          setState(() {
+                            _selectedCluster = clusterSnaps;
+                            _carouselIndex = 0;
+                          });
+                        },
+                        child: _buildStackedMarker(clusterSnaps),
                       ),
                     );
                   }),
@@ -419,46 +398,510 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
             ),
 
           // ── 5. Send a Snap Button ────────────────────────────────────────
-          Positioned(
-            bottom: 40,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: GestureDetector(
-                onTap: () => context.push('/main/camera', extra: {'from': 'map'}),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: SetlogColors.momentoPink,
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
-                      BoxShadow(
-                          color: SetlogColors.momentoPink.withValues(alpha: 0.4),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4))
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.camera_alt, color: Colors.white, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        'Send a Snap',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16),
-                      ),
-                    ],
+          if (_selectedCluster == null)
+            Positioned(
+              bottom: 40,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => context.push('/main/camera', extra: {'from': 'map'}),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: SetlogColors.momentoPink,
+                      borderRadius: BorderRadius.circular(30),
+                      boxShadow: [
+                        BoxShadow(
+                            color: SetlogColors.momentoPink.withValues(alpha: 0.4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4))
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Send a Snap',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
+            
+          // ── 6. Carousel Overlay ──────────────────────────────────────────
+          if (_selectedCluster != null)
+            _buildCarouselOverlay(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStackedMarker(List<DirectSnap> snaps) {
+    if (snaps.isEmpty) return const SizedBox.shrink();
+
+    final uniqueSenders = <String, DirectSnap>{};
+    for (var snap in snaps) {
+      if (!uniqueSenders.containsKey(snap.senderUid)) {
+        uniqueSenders[snap.senderUid] = snap;
+      }
+    }
+    final uniqueSnaps = uniqueSenders.values.toList();
+    final isMe = uniqueSnaps.first.senderUid == FirebaseAuth.instance.currentUser?.uid;
+    final displayName = uniqueSnaps.length > 1
+        ? '${uniqueSnaps.length} Friends'
+        : (isMe ? 'Me' : uniqueSnaps.first.senderUsername);
+
+    const double cardW = 120;
+    const double photoH = 80;
+    const double labelH = 44;
+    const double cardH = photoH + labelH;
+
+    final snap = snaps.first;
+    final snapTime = snap.timestamp;
+    final timeAgoStr = timeago.format(snapTime, allowFromNow: true);
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Back cards (stacked illusion)
+        if (snaps.length > 2)
+          Positioned(
+            top: 8,
+            left: 14,
+            child: Transform.rotate(
+              angle: 0.18,
+              child: _buildPolaroidCard(cardW, cardH),
+            ),
+          ),
+        if (snaps.length > 1)
+          Positioned(
+            top: 4,
+            left: 7,
+            child: Transform.rotate(
+              angle: 0.09,
+              child: _buildPolaroidCard(cardW, cardH),
+            ),
+          ),
+
+        // Top polaroid card
+        Container(
+          width: cardW,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Photo area — dark background with avatars side-by-side
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                child: Container(
+                  width: cardW,
+                  height: photoH,
+                  color: const Color(0xFF1A0A10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      uniqueSnaps.length > 3 ? 3 : uniqueSnaps.length,
+                      (i) {
+                        final avatarSize = uniqueSnaps.length == 1
+                            ? 64.0
+                            : uniqueSnaps.length == 2
+                                ? 50.0
+                                : 42.0;
+                        return Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: uniqueSnaps.length == 1 ? 0 : 1),
+                          child: AvatarWidget(
+                            avatar: MomentoAvatar.fromSeed(uniqueSnaps[i].senderUid),
+                            size: avatarSize,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              // White label strip — location + timeago
+              Container(
+                width: cardW,
+                height: labelH,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: FutureBuilder<String>(
+                  future: _getPlaceName(snap.lat ?? 0, snap.lng ?? 0),
+                  builder: (context, snapshot) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          displayName,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                            height: 1.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          snapshot.hasData ? '${snapshot.data} • $timeAgoStr' : timeAgoStr,
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.black.withValues(alpha: 0.45),
+                            height: 1.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Badge
+        if (snaps.length > 1)
+          Positioned(
+            top: -10,
+            right: -6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: SetlogColors.momentoPink,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: SetlogColors.momentoPink.withValues(alpha: 0.45),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                '${snaps.length} Snaps',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPolaroidCard(double width, double height) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCarouselOverlay() {
+    return Positioned.fill(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedCluster = null), // dismiss on tap outside
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.3),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              GestureDetector(
+                onTap: () {}, // consume tap inside carousel
+                child: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: Container(
+                      padding: const EdgeInsets.only(top: 24, bottom: 40),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.5))),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Handle pill
+                          Container(
+                            width: 40,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          
+                          SizedBox(
+                            height: 280,
+                            child: PageView.builder(
+                              controller: PageController(viewportFraction: 0.8),
+                              onPageChanged: (index) => setState(() => _carouselIndex = index),
+                              itemCount: _selectedCluster!.length,
+                              itemBuilder: (context, index) {
+                                final snap = _selectedCluster![index];
+                                final isMe = snap.senderUid == FirebaseAuth.instance.currentUser?.uid;
+                                final displayName = isMe ? 'Me' : snap.senderUsername;
+                                
+                                double distance = double.infinity;
+                                if (_currentLocation != null && snap.lat != null && snap.lng != null) {
+                                  distance = Geolocator.distanceBetween(
+                                    _currentLocation!.latitude,
+                                    _currentLocation!.longitude,
+                                    snap.lat!,
+                                    snap.lng!,
+                                  );
+                                }
+                                
+                                final unlocked = distance <= 50;
+
+                                return Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(24),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.1),
+                                        blurRadius: 15,
+                                        offset: const Offset(0, 5),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      // Blurred Preview Area
+                                      Expanded(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                                            gradient: const LinearGradient(
+                                              colors: [Color(0xFFE5D5DD), Color(0xFFD6C8D0)],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
+                                          ),
+                                          child: Center(
+                                            child: Icon(
+                                              unlocked ? Icons.lock_open_rounded : Icons.lock_rounded,
+                                              size: 48,
+                                              color: Colors.black.withValues(alpha: 0.2),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      
+                                      // Bottom Info Area
+                                      Padding(
+                                        padding: const EdgeInsets.all(16.0),
+                                        child: Column(
+                                          children: [
+                                            Row(
+                                              children: [
+                                                AvatarWidget(
+                                                  avatar: MomentoAvatar.fromSeed(snap.senderUid),
+                                                  size: 40,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        displayName,
+                                                        style: const TextStyle(
+                                                          fontSize: 16,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: Colors.black87,
+                                                        ),
+                                                      ),
+                                                      if (!unlocked && distance != double.infinity)
+                                                        Text(
+                                                          '${distance.toStringAsFixed(0)}m away',
+                                                          style: const TextStyle(
+                                                            fontSize: 13,
+                                                            color: Colors.black54,
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 16),
+                                            GestureDetector(
+                                              onTap: () => _onSnapTapped(snap),
+                                              child: Container(
+                                                width: double.infinity,
+                                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                                decoration: BoxDecoration(
+                                                  color: unlocked ? SetlogColors.momentoPink : const Color(0xFF1A0A10),
+                                                  borderRadius: BorderRadius.circular(16),
+                                                ),
+                                                alignment: Alignment.center,
+                                                child: Text(
+                                                  unlocked ? 'View Snap' : 'Get Directions 📍',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 15,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          
+                          // Pagination Dots
+                          if (_selectedCluster!.length > 1)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 16),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(
+                                  _selectedCluster!.length,
+                                  (i) => Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: _carouselIndex == i 
+                                          ? SetlogColors.momentoPink 
+                                          : Colors.black.withValues(alpha: 0.2),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPointyMarker(MomentoAvatar avatar, String name) {
+    final glowColor = Color(MomentoAvatar.bgGradients[avatar.bgScene][0]);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            // The Pointy bit (triangle) using a rotated container
+            Positioned(
+              bottom: -4,
+              child: Transform.rotate(
+                angle: 3.14159 / 4, // 45 degrees
+                child: Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: glowColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+            // The Circle with border
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: glowColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: glowColor.withValues(alpha: 0.5),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(3), // Border thickness
+              child: Container(
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white, // Inner thin border
+                ),
+                padding: const EdgeInsets.all(1.5),
+                child: ClipOval(
+                  child: AvatarWidget(
+                    avatar: avatar,
+                    size: 50,
+                    showBorder: false,
+                    showGlow: false,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        // Name Badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            name,
+            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
     );
   }
 }
