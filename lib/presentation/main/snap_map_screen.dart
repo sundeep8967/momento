@@ -220,42 +220,78 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
                   if (_currentLocation != null)
                     Marker(
                       point: _currentLocation!,
-                      width: 50,
-                      height: 50,
-                      child: AvatarWidget(
-                        avatar: MomentoAvatar.fromSeed(
-                            FirebaseAuth.instance.currentUser?.uid ?? 'momento'),
-                        size: 50,
-                        showBorder: true,
-                        showGlow: true,
+                      width: 80,
+                      height: 80,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AvatarWidget(
+                            avatar: MomentoAvatar.fromSeed(
+                                FirebaseAuth.instance.currentUser?.uid ?? 'momento'),
+                            size: 50,
+                            showBorder: true,
+                            showGlow: true,
+                          ),
+                          const SizedBox(height: 2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text(
+                              'Me',
+                              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ...positioned.map((entry) {
                     final (snap, point) = entry;
                     return Marker(
                       point: point,
-                      width: 56,
-                      height: 56,
+                      width: 90,
+                      height: 90,
                       child: GestureDetector(
                         onTap: () => _onSnapTapped(snap),
-                        child: Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: SetlogColors.snapViewerAccent,
-                              width: 2.5,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: SetlogColors.snapViewerAccent,
+                                  width: 2.5,
+                                ),
+                              ),
+                              child: ClipOval(
+                                child: AvatarWidget(
+                                  avatar: MomentoAvatar.fromSeed(snap.senderUid),
+                                  size: 48,
+                                  showBorder: false,
+                                  showGlow: false,
+                                ),
+                              ),
                             ),
-                          ),
-                          child: ClipOval(
-                            child: AvatarWidget(
-                              avatar: MomentoAvatar.fromSeed(snap.senderUid),
-                              size: 48,
-                              showBorder: false,
-                              showGlow: false,
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                snap.senderUsername,
+                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
                     );

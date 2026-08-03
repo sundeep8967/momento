@@ -496,71 +496,78 @@ class _FriendsScreenState extends State<FriendsScreen>
         ),
       );
     }
-    return ListView.separated(
+    return GridView.builder(
       padding: const EdgeInsets.all(20),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 24,
+        childAspectRatio: 0.75,
+      ),
       itemCount: _friends.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, i) {
         final f = _friends[i];
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.black.withValues(alpha: 0.05), width: 1),
+        return Column(
+          children: [
+            Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black.withValues(alpha: 0.05), width: 1),
+                  ),
+                  child: MomentoProfileAvatar(
+                    photoUrl: f.photoUrl,
+                    seed: f.uid,
+                    size: 72,
+                    showBorder: false,
+                  ),
                 ),
-                child: MomentoProfileAvatar(
-                  photoUrl: f.photoUrl,
-                  seed: f.uid,
-                  size: 44,
-                  showBorder: false,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(f.displayName,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                                color: Colors.black87)),
-                        _buildStreakBadge(f),
-                      ],
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: () async {
+                      await FriendsRepository.instance.declineOrRemove(f.uid);
+                      await _loadFriendData();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                      ),
+                      child: const Icon(CupertinoIcons.minus, size: 14, color: Colors.black54),
                     ),
-                    Text('@${f.username}',
-                        style: const TextStyle(
-                            fontSize: 13, color: Colors.black45, fontWeight: FontWeight.w500)),
-                  ],
+                  ),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(CupertinoIcons.person_badge_minus, color: Colors.black26),
-                onPressed: () async {
-                  await FriendsRepository.instance.declineOrRemove(f.uid);
-                  await _loadFriendData();
-                },
-              ),
-            ],
-          ),
-        ).animate(delay: (i * 75).ms).fadeIn(duration: 400.ms).slideX(begin: 0.1, curve: Curves.easeOutQuad);
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Text(
+                    f.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87),
+                  ),
+                ),
+                _buildStreakBadge(f),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '@${f.username}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: Colors.black45, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ).animate(delay: (i * 50).ms).fadeIn(duration: 400.ms).slideY(begin: 0.1, curve: Curves.easeOutQuad);
       },
     );
   }

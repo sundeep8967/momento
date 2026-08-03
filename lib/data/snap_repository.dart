@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'friends_repository.dart';
 import 'push_notification_service.dart';
+import 'auth_provider.dart';
 
 class DirectSnap {
   final String id;
@@ -53,10 +54,10 @@ final snapRepositoryProvider = Provider<SnapRepository>((ref) {
   return SnapRepository._internal();
 });
 
-// Tracks UIDs and Group names currently being sent a snap for UI loading states
 final sendingSnapsProvider = StateProvider<Set<String>>((ref) => <String>{});
 
 final groupedInboxStreamProvider = StreamProvider<List<List<DirectSnap>>>((ref) {
+  ref.watch(authStateProvider);
   final snapRepo = ref.watch(snapRepositoryProvider);
   final uid = FirebaseAuth.instance.currentUser?.uid;
   
