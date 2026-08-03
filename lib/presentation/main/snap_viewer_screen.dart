@@ -110,12 +110,46 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
     }
   }
 
+  void _previousSnap() {
+    if (_currentIndex > 0) {
+      _currentIndex--;
+      _loadSnap();
+    }
+  }
+
   void _nextSnap() {
     if (_currentIndex < widget.snaps.length - 1) {
       _currentIndex++;
       _loadSnap();
     } else {
       context.pop();
+    }
+  }
+
+  void _handleTap(TapUpDetails details, double maxWidth) {
+    if (details.localPosition.dx < maxWidth * 0.3) {
+      _previousSnap();
+    } else {
+      _nextSnap();
+    }
+  }
+
+  void _handleLongPressDown() {
+    if (currentSnap.isVideo && _videoController != null) {
+      _videoController!.pause();
+    } else {
+      _imageTimer?.cancel();
+    }
+    // Also hide UI elements here if we wanted to
+  }
+
+  void _handleLongPressUp() {
+    if (currentSnap.isVideo && _videoController != null) {
+      _videoController!.play();
+    } else {
+      _imageTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted) _nextSnap();
+      });
     }
   }
 
@@ -174,18 +208,7 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
     }
   }
 
-  void _togglePlayPause() {
-    if (!currentSnap.isVideo) {
-      _nextSnap(); // Skip image if tapped
-      return;
-    }
-    if (_videoController == null) return;
-    if (_videoController!.value.isPlaying) {
-      _videoController!.pause();
-    } else {
-      _videoController!.play();
-    }
-  }
+
 
   String _getPosterUrl(DirectSnap snap) {
     if (snap.videoUrl.isEmpty) return '';
@@ -215,9 +238,13 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
     
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
+      body: Dismissible(
+        key: const Key('snap_viewer_dismiss'),
+        direction: DismissDirection.vertical,
+        onDismissed: (_) => context.pop(),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
           // Instant Media Player & Poster Masking
           if (_isError)
             const Center(child: Text('Failed to load media', style: TextStyle(color: Colors.white)))
@@ -380,7 +407,7 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildMediaView() {
@@ -388,48 +415,50 @@ class _SnapViewerScreenState extends ConsumerState<SnapViewerScreen> {
     final isVideo = currentSnap.isVideo;
     final isInitialized = _videoController != null && _videoController!.value.isInitialized;
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // 1. Video Player Layer (Active once initialized)
-        if (isVideo && isInitialized)
-          GestureDetector(
-            onTap: _togglePlayPause,
-            onLongPress: () => _videoController?.pause(),
-            onLongPressUp: () => _videoController?.play(),
-            child: Transform.scale(
-              scaleX: currentSnap.isFrontCamera ? -1 : 1,
-              child: AspectRatio(
-                aspectRatio: _videoController!.value.aspectRatio,
-                child: VideoPlayer(_videoController!),
-              ),
-            ),
-          ),
-
-        // 2. Instant Poster/Image Mask (Renders instantly 0ms, fades out when video starts)
-        if (!isVideo || !isInitialized)
-          GestureDetector(
-            onTap: _togglePlayPause,
-            child: Transform.scale(
-              scaleX: currentSnap.isFrontCamera ? -1 : 1,
-              child: Image.network(
-                posterUrl,
-                fit: BoxFit.contain,
-                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                  if (wasSynchronouslyLoaded) return child;
-                  return AnimatedOpacity(
-                    opacity: frame == null ? 0.0 : 1.0,
-                    duration: const Duration(milliseconds: 150),
-                    child: child,
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) => const Center(
-                  child: Icon(Icons.broken_image, color: Colors.white54, size: 48),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GestureDetector(
+          onTapUp: (details) => _handleTap(details, constraints.maxWidth),
+          onLongPressDown: (_) => _handleLongPressDown(),
+          onLongPressUp: () => _handleLongPressUp(),
+          onLongPressCancel: () => _handleLongPressUp(),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 1. Video Player Layer (Active once initialized)
+              if (isVideo && isInitialized)
+                Transform.scale(
+                  scaleX: currentSnap.isFrontCamera ? -1 : 1,
+                  child: AspectRatio(
+                    aspectRatio: _videoController!.value.aspectRatio,
+                    child: VideoPlayer(_videoController!),
+                  ),
                 ),
-              ),
-            ),
+
+              // 2. Instant Poster/Image Mask (Renders instantly 0ms, fades out when video starts)
+              if (!isVideo || !isInitialized)
+                Transform.scale(
+                  scaleX: currentSnap.isFrontCamera ? -1 : 1,
+                  child: Image.network(
+                    posterUrl,
+                    fit: BoxFit.contain,
+                    frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                      if (wasSynchronouslyLoaded) return child;
+                      return AnimatedOpacity(
+                        opacity: frame == null ? 0.0 : 1.0,
+                        duration: const Duration(milliseconds: 150),
+                        child: child,
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Icon(Icons.broken_image, color: Colors.white54, size: 48),
+                    ),
+                  ),
+                ),
+            ],
           ),
-      ],
+        );
+      },
     );
   }
 }

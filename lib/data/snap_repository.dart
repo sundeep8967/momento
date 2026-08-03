@@ -272,6 +272,26 @@ class SnapRepository {
       'lat': lat,
       'lng': lng,
     });
+
+    // Notify all friends about the new map snap
+    try {
+      final friendUids = await FriendsRepository.instance.getMutualFriendUids();
+      await Future.wait(friendUids.map((friendUid) async {
+        try {
+          final friendDoc = await _db.collection('users').doc(friendUid).get();
+          final fcmToken = friendDoc.data()?['fcmToken'] as String?;
+          if (fcmToken != null && fcmToken.isNotEmpty) {
+            await PushNotificationService.instance.sendPushNotification(
+              targetToken: fcmToken,
+              title: '📍 @$senderUsername dropped a Moment nearby!',
+              body: isVideo ? 'Check the map to watch it.' : 'Check the map to view it.',
+            );
+          }
+        } catch (_) {}
+      }));
+    } catch (_) {
+      // Never let a failed notification break the snap send
+    }
   }
 
   Future<void> _updatePairwiseStreaks(String senderUid, List<String> friendUids) async {
