@@ -113,7 +113,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
 
   void _sendSnap() async {
     if (_isSending) return; // FIX M6: Guard against double tap
-    if (_selectedFriendUids.isEmpty && _selectedGroupIds.isEmpty) return;
+    if (_selectedFriendUids.isEmpty && _selectedGroupIds.isEmpty && !_dropOnMap && !_postToLocal) return;
     
     setState(() => _isSending = true);
     
@@ -205,7 +205,10 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
           );
         }
 
-        if (postToLocal) {
+        // If they chose 'Drop' but didn't select any friends, default to posting locally so it actually shows up on the map
+        bool actuallyPostToLocal = postToLocal || (dropOnMap && friendUids.isEmpty && selectedGroups.isEmpty);
+
+        if (actuallyPostToLocal) {
           if (lat != null && lng != null) {
             await snapRepo.sendLocalSnap(
               videoUrl: mediaUrl,
@@ -220,10 +223,13 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
         // Show success snackbar only for local/map drops if no friends were selected
         if (sendingIds.isEmpty && (postToLocal || dropOnMap)) {
           scaffoldMessenger.showSnackBar(
-            const SnackBar(
-              content: Text('Posted to map ✓', style: TextStyle(color: Colors.white)),
+            SnackBar(
+              content: Text(
+                'Posted to map ✓ (${lat?.toStringAsFixed(4)}, ${lng?.toStringAsFixed(4)})',
+                style: const TextStyle(color: Colors.white),
+              ),
               backgroundColor: SetlogColors.authTerminalAccent,
-              duration: Duration(seconds: 3),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -544,7 +550,10 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
               label: _isSending 
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Text('Send Momento', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              icon: _isSending ? null : const Icon(Icons.send, color: Colors.white),
+              icon: _isSending ? null : Transform.rotate(
+                angle: 1.5708, // 90 degrees in radians
+                child: const Icon(Icons.navigation, color: Colors.white),
+              ),
             )
           : null,
     );

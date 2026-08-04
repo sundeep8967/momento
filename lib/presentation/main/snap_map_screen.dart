@@ -15,8 +15,33 @@ import 'package:momento/avatar_kit/momento_avatar.dart';
 import 'package:momento/data/algorithms.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geocoding/geocoding.dart';
+import 'dart:ui' as ui;
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+class TrianglePainter extends CustomPainter {
+  final Color color;
+  TrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final path = ui.Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    
+    // Add shadow
+    canvas.drawShadow(path, Colors.black, 4, false);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
 
 class SnapMapScreen extends ConsumerStatefulWidget {
   final double? targetLat;
@@ -83,10 +108,10 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
     }
     // Use the cached location immediately — zero wait, no jump
     _currentLocation = _cachedUserLocation;
-    _fetchLocation();
+    _initLocation();
   }
 
-  Future<void> _fetchLocation() async {
+  Future<void> _initLocation() async {
     // If a target location was passed, center on it immediately
     if (widget.targetLat != null && widget.targetLng != null) {
       final loc = LatLng(widget.targetLat!, widget.targetLng!);
@@ -591,6 +616,16 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
                 ),
               ),
             ],
+          ),
+        ),
+
+        // V-shaped tail pointing down
+        Positioned(
+          bottom: -8,
+          left: (cardW / 2) - 15, // centered with new width of 30
+          child: CustomPaint(
+            painter: TrianglePainter(color: Colors.white),
+            size: const Size(30, 15),
           ),
         ),
 
