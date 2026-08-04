@@ -44,7 +44,7 @@ class _AuthLandingScreenState extends State<AuthLandingScreen> {
         // Check if user has a username profile setup
         final profile = await FriendsRepository.instance.getMyProfile();
         if (mounted) {
-          if (profile == null || profile.username.isEmpty) {
+          if (profile == null || profile.username.isEmpty || profile.username == '@') {
             context.go('/auth/username');
           } else {
             context.go('/main');
