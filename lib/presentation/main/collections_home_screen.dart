@@ -361,7 +361,10 @@ class _CollectionsHomeScreenState extends ConsumerState<CollectionsHomeScreen> {
                                         TextButton(
                                           onPressed: () {
                                             Navigator.pop(context);
-                                            context.push('/map');
+                                            context.push('/map', extra: {
+                                              'targetLat': firstSnap.lat,
+                                              'targetLng': firstSnap.lng,
+                                            });
                                           },
                                           child: const Text('Open Map', style: TextStyle(color: SetlogColors.momentoPink, fontWeight: FontWeight.bold)),
                                         ),

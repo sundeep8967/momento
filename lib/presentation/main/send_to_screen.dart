@@ -537,7 +537,7 @@ class _SendToScreenState extends ConsumerState<SendToScreen> {
                     ],
                   ],
                 ),
-      floatingActionButton: _selectedFriendUids.isNotEmpty || _selectedGroupIds.isNotEmpty
+      floatingActionButton: _selectedFriendUids.isNotEmpty || _selectedGroupIds.isNotEmpty || _postToLocal || _dropOnMap
           ? FloatingActionButton.extended(
               onPressed: _isSending ? null : _sendSnap,
               backgroundColor: SetlogColors.brownPrimary,

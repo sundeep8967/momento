@@ -19,7 +19,10 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SnapMapScreen extends ConsumerStatefulWidget {
-  const SnapMapScreen({super.key});
+  final double? targetLat;
+  final double? targetLng;
+
+  const SnapMapScreen({super.key, this.targetLat, this.targetLng});
 
   @override
   ConsumerState<SnapMapScreen> createState() => _SnapMapScreenState();
@@ -84,18 +87,27 @@ class _SnapMapScreenState extends ConsumerState<SnapMapScreen> {
   }
 
   Future<void> _fetchLocation() async {
-    // 1. Fast Path: last known OS cache (0 ms, no GPS cold-start)
-    try {
-      final lastPos = await Geolocator.getLastKnownPosition();
-      if (lastPos != null && mounted) {
-        final loc = LatLng(lastPos.latitude, lastPos.longitude);
-        _cachedUserLocation = loc;
-        if (_currentLocation == null) {
-          setState(() => _currentLocation = loc);
-          _mapController.move(loc, 15);
-        }
-      }
-    } catch (_) {}
+    // If a target location was passed, center on it immediately
+    if (widget.targetLat != null && widget.targetLng != null) {
+      final loc = LatLng(widget.targetLat!, widget.targetLng!);
+      setState(() => _currentLocation = loc);
+      // Wait for map to be ready
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _mapController.move(loc, 15);
+      });
+      return;
+    }
+
+    // 1. Instantly use cached location if available
+    if (_cachedUserLocation != null) {
+      setState(() => _currentLocation = _cachedUserLocation);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _mapController.move(_cachedUserLocation!, 15);
+      });
+    } else {
+      // 1b. Fast fallback: London
+      setState(() => _currentLocation = const LatLng(51.5074, -0.1278));
+    }
 
     // 2. Permission check
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();

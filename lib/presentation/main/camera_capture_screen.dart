@@ -45,6 +45,34 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   int _dualCameraTapCount = 0; // Tracks dual camera button states: 0=off, 1=on, 2=swapped
   List<CameraDescription>? _availableCamerasCache;
 
+  // Filters
+  final List<ColorFilter?> _filters = [
+    null, // Normal
+    const ColorFilter.matrix([ // Warm
+      1.1, 0.0, 0.0, 0.0, 20.0,
+      0.0, 1.0, 0.0, 0.0, 10.0,
+      0.0, 0.0, 0.9, 0.0, -10.0,
+      0.0, 0.0, 0.0, 1.0, 0.0,
+    ]),
+    const ColorFilter.matrix([ // Cool
+      0.9, 0.0, 0.0, 0.0, 0.0,
+      0.0, 1.0, 0.0, 0.0, 10.0,
+      0.0, 0.0, 1.1, 0.0, 20.0,
+      0.0, 0.0, 0.0, 1.0, 0.0,
+    ]),
+    const ColorFilter.matrix([ // B&W
+      0.33, 0.59, 0.11, 0.0, 0.0,
+      0.33, 0.59, 0.11, 0.0, 0.0,
+      0.33, 0.59, 0.11, 0.0, 0.0,
+      0.0, 0.0, 0.0, 1.0, 0.0,
+    ]),
+  ];
+  int _currentFilterIndex = 0;
+
+  // Sticker
+  Offset _stickerOffset = const Offset(100, 200);
+  bool _showSticker = false;
+
   Future<List<CameraDescription>> _getAvailableCameras() async {
     _availableCamerasCache ??= await availableCameras();
     return _availableCamerasCache!;
@@ -362,32 +390,88 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         children: [
           // Camera preview / Media display (Full edge-to-edge screen)
           Positioned.fill(
-            child: RotatedBox(
-              quarterTurns: _isLandscape ? 1 : 0,
-              child: SizedBox.expand(
-                child: (_isReviewing && _recordedFile != null && !_isVideo)
-                    ? Transform.scale(
-                        scaleX: _isFrontCamera ? -1 : 1,
-                        child: Image.file(
-                          File(_recordedFile!.path),
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    : _isCameraInitialized
-                        ? FittedBox(
-                            fit: BoxFit.cover,
-                            child: SizedBox(
-                              width: _cameraController!.value.previewSize?.height ?? 1,
-                              height: _cameraController!.value.previewSize?.width ?? 1,
-                              child: CameraPreview(_cameraController!),
+            child: GestureDetector(
+              onHorizontalDragEnd: _isReviewing ? (details) {
+                if (details.primaryVelocity! > 0) {
+                  // Swipe right
+                  setState(() {
+                    _currentFilterIndex = (_currentFilterIndex - 1) % _filters.length;
+                    if (_currentFilterIndex < 0) _currentFilterIndex += _filters.length;
+                  });
+                } else if (details.primaryVelocity! < 0) {
+                  // Swipe left
+                  setState(() {
+                    _currentFilterIndex = (_currentFilterIndex + 1) % _filters.length;
+                  });
+                }
+              } : null,
+              onTap: _isReviewing ? () {
+                setState(() {
+                  _showSticker = !_showSticker;
+                });
+              } : null,
+              child: ColorFiltered(
+                colorFilter: _isReviewing && _filters[_currentFilterIndex] != null 
+                    ? _filters[_currentFilterIndex]! 
+                    : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
+                child: RotatedBox(
+                  quarterTurns: _isLandscape ? 1 : 0,
+                  child: SizedBox.expand(
+                    child: (_isReviewing && _recordedFile != null && !_isVideo)
+                        ? Transform.scale(
+                            scaleX: _isFrontCamera ? -1 : 1,
+                            child: Image.file(
+                              File(_recordedFile!.path),
+                              fit: BoxFit.cover,
                             ),
                           )
-                        : const Center(
-                            child: CircularProgressIndicator(color: SetlogColors.authTerminalAccent),
-                          ),
+                        : _isCameraInitialized
+                            ? FittedBox(
+                                fit: BoxFit.cover,
+                                child: SizedBox(
+                                  width: _cameraController!.value.previewSize?.height ?? 1,
+                                  height: _cameraController!.value.previewSize?.width ?? 1,
+                                  child: CameraPreview(_cameraController!),
+                                ),
+                              )
+                            : const Center(
+                                child: CircularProgressIndicator(color: SetlogColors.authTerminalAccent),
+                              ),
+                  ),
+                ),
               ),
             ),
           ),
+
+          // Draggable Sticker Overlay
+          if (_isReviewing && _showSticker)
+            Positioned(
+              left: _stickerOffset.dx,
+              top: _stickerOffset.dy,
+              child: GestureDetector(
+                onPanUpdate: (details) {
+                  setState(() {
+                    _stickerOffset += details.delta;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 1.5),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('📍', style: TextStyle(fontSize: 24)),
+                      SizedBox(width: 8),
+                      Text('Momento', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
           // Dual Camera PIP Window Overlay (Draggable anywhere on screen)
           if (_isDualCamera && _isCameraInitialized && !_isReviewing)

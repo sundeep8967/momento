@@ -170,7 +170,13 @@ final GoRouter appRouter = GoRouter(
     // ── Snap Map ──
     GoRoute(
       path: '/map',
-      pageBuilder: (context, state) => _fluidRoute(state, const SnapMapScreen()),
+      pageBuilder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return _fluidRoute(state, SnapMapScreen(
+          targetLat: extra?['targetLat'] as double?,
+          targetLng: extra?['targetLng'] as double?,
+        ));
+      },
     ),
 
     // ── Friends & Social ──
